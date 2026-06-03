@@ -1,0 +1,77 @@
+============================================================
+           FICHE TECHNIQUE - PREMIUM SPIN & WIN
+============================================================
+
+1. PRÉSENTATION DU PROJET
+-------------------------
+Nom : Premium Spin & Win
+Version : 2.0 (Lead Tracking & Dynamic Admin Edition)
+Type : Application Web de Marketing Interactive (Gamification)
+Objectif : Capture de leads, engagement client et distribution de récompenses.
+
+2. ARCHITECTURE TECHNIQUE
+-------------------------
+- Langages : HTML5, CSS3 (Vanilla), JavaScript (ES6+)
+- Mode : Client-side uniquement (Static Site)
+- Stockage : LocalStorage (Synchronisation inter-pages)
+- APIs Externes : FreeIPAPI (Géolocalisation & IP)
+- Design : Glassmorphism, Ethereal Particles UI, Responsive Mobile-First
+
+3. FONCTIONNALITÉS CLIENT (index.html / script.js)
+-------------------------------------------------
+- Formulaire de Capture : Validation d'email avant accès à la roue.
+- Roue de la Fortune :
+    * 8 segments personnalisables.
+    * Système de poids (Weighted Probability) pour contrôler la rareté des gains.
+    * Rendu graphique haute performance sur Canvas 2D.
+    * Effets sonores procéduraux (AudioContext API).
+- Système de Récompenses :
+    * Modal de victoire avec code promo.
+    * Bouton de copie rapide avec feedback visuel.
+    * Option "Offrir à un ami" (Simulation).
+- Historique des Gains : Affichage des derniers gains avec option de recopie du code.
+- Tracking Avancé (Invisible) :
+    * Capture IP, Ville, Région, Pays.
+    * Capture Browser Agent, Plateforme, Langue.
+    * Capture Résolution d'écran et Referrer.
+
+4. PANNEAU D'ADMINISTRATION (panel.html / panel.js)
+--------------------------------------------------
+- Dashboard des Leads :
+    * Tableau récapitulatif de toutes les données capturées.
+    * Badge de localisation et formatage temporel.
+    * Bouton "Export CSV" : Génération de fichier Excel/CSV en un clic.
+    * Bouton "Clear All" : Réinitialisation de la base de données locale.
+- Gestion de la Roue (Wheel Management) :
+    * Modification en temps réel des labels et emojis.
+    * Contrôle de la Difficulté : Ajustement des "Weights" (Poids).
+    * Mise à jour des Codes Promos : Édition directe des codes distribués.
+    * Personnalisation Visuelle : Sélecteurs de couleurs pour chaque segment.
+
+5. LOGIQUE DE CALCUL (DIFFIculté)
+---------------------------------
+Le système utilise un algorithme de sélection pondérée :
+- Probabilité d'un segment = (Poids du segment / Somme totale des poids) * 100
+- Exemple : Un segment avec poids 1 sur un total de 100 a 1% de chance de gagner.
+
+6. STRUCTURE DES FICHIERS
+-------------------------
+/spin-win
+├── index.html       # Interface client principale
+├── script.js        # Logique de la roue et tracking
+├── style.css        # Design global et animations
+├── panel.html       # Tableau de bord administratif
+├── panel.js         # Logique de gestion et export
+├── assets/
+│   └── logo.PNG     # Identité visuelle
+└── coupons.txt      # (Référence) Liste initiale des coupons
+
+7. CONFIGURATION & SÉCURITÉ
+---------------------------
+- Sécurité : Le panneau admin (panel.html) est isolé de l'interface publique.
+- Persistance : Les réglages et leads sont conservés localement dans le navigateur.
+- Exportation : Format CSV compatible Excel/Google Sheets.
+
+============================================================
+                 FIN DE LA FICHE TECHNIQUE
+============================================================
