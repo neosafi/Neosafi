@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Premium Spin & Win | Luxury Gaming Experience</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -13,51 +13,69 @@
     <div class="cyber-grid"></div>
 
     <!-- Luxury Gaming Navbar -->
-    <nav class="navbar" style="position: fixed; top: 0; width: 100%; z-index: 1000; padding: 1.5rem 0;">
-        <div class="nav-container" style="max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <nav class="navbar">
+        <div class="nav-container">
             <div class="logo">
-                <img src="assets/logo.PNG" alt="Logo" style="height: 40px; filter: drop-shadow(0 0 10px var(--primary-glow));">
+                <img src="assets/logo.PNG" alt="Logo" class="logo-img">
             </div>
             
-            <div class="nav-actions" style="display: flex; gap: 1rem;">
+            <div class="nav-actions">
                 <button id="theme-toggle" class="icon-container" title="Toggle Aesthetic">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                 </button>
                 <button id="sound-toggle" class="icon-container" title="Sound Control">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 </button>
             </div>
         </div>
     </nav>
 
-    <main class="container" style="margin-top: 120px; max-width: 1200px; width: 100%; margin-inline: auto; padding: 2rem; display: flex; align-items: center; justify-content: center;">
-        
-        <!-- Main Interactive Core -->
-        <div id="lead-capture" class="glass-card stagger-up" style="max-width: 600px; width: 100%; text-align: center;">
-            <div style="margin-bottom: 2rem;">
-                <span style="font-family: var(--font-display); font-size: 0.8rem; color: var(--primary); letter-spacing: 0.4em; text-transform: uppercase;">Exclusive Access</span>
-                <h1>Spin <span class="title-accent">&</span> Win</h1>
-                <p class="subtitle" style="font-family: var(--font-body); color: var(--text-mid); font-size: 1.1rem; line-height: 1.6;">Enter the luxury arena. Deploy your email to unlock legendary rewards and digital assets.</p>
-            </div>
-
-            <form id="spin-form">
-                <div class="input-wrapper">
-                    <input type="email" id="email" placeholder="ENTER PLAYER EMAIL" required>
+    <main class="main-content">
+        <div class="container" id="main-container">
+            
+            <!-- Stage 1: Lead Capture -->
+            <section id="lead-capture" class="glass-card entrance-anim">
+                <div class="header-group">
+                    <span class="eyebrow">Exclusive Access</span>
+                    <h1>Spin <span class="title-accent">&</span> Win</h1>
+                    <p class="subtitle">Deploy your email to unlock legendary rewards and digital assets.</p>
                 </div>
-                <button type="submit" class="btn-cyber">
-                    Initialize Spin
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                </button>
-            </form>
-        </div>
 
-        <!-- Wheel Section (Bento Layout) -->
-        <div id="wheel-wrapper" style="display: none; width: 100%; max-width: 1100px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center;">
-                
-                <!-- Left: Analytics & Info -->
-                <div class="stagger-up">
-                    <div class="stats-grid">
+                <form id="spin-form" class="luxury-form">
+                    <div class="input-wrapper">
+                        <input type="email" id="email" placeholder="ENTER PLAYER EMAIL" required>
+                    </div>
+                    <button type="submit" class="btn-cyber">
+                        Initialize Spin
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Stage 2: The Arena (Wheel + Stats) -->
+            <section id="wheel-wrapper" class="arena-layout">
+                <!-- Wheel Side (Top on Mobile) -->
+                <div class="glass-card wheel-section stagger-1">
+                    <div class="wheel-arena">
+                        <div class="wheel-outer-ring"></div>
+                        <div class="wheel-pointer">
+                            <svg width="30" height="40" viewBox="0 0 30 40" fill="none">
+                                <path d="M15 40L0 10C0 10 0 0 15 0C30 0 30 10 30 10L15 40Z" fill="#fff"/>
+                                <path d="M15 30L5 10C5 10 5 4 15 4C25 4 25 10 25 10L15 30Z" fill="var(--primary)"/>
+                            </svg>
+                        </div>
+                        <div class="wheel-center-luxury"></div>
+                        <canvas id="wheel" width="720" height="720"></canvas>
+                    </div>
+
+                    <button id="spin-btn" class="btn-cyber spin-main-btn">
+                        EXECUTE SPIN
+                    </button>
+                </div>
+
+                <!-- Info Side (Bottom on Mobile) -->
+                <div class="info-section">
+                    <div class="stats-grid stagger-2">
                         <div class="stat-card">
                             <span class="stat-label">Power Level</span>
                             <span class="stat-value" id="spins-left">1</span>
@@ -68,73 +86,47 @@
                         </div>
                     </div>
 
-                    <div class="glass-card" style="padding: 2.5rem;">
-                        <h3 style="font-family: var(--font-display); font-size: 0.9rem; letter-spacing: 0.2em; color: var(--text-mid); margin-bottom: 1.5rem; text-transform: uppercase;">Recent Activity</h3>
-                        <ul id="win-history" style="list-style: none;">
+                    <div class="glass-card history-card stagger-3">
+                        <h3 class="bento-title">Recent Activity</h3>
+                        <ul id="win-history" class="history-list-gaming">
                             <!-- History items added via JS -->
                         </ul>
                     </div>
                 </div>
-
-                <!-- Right: The Wheel Arena -->
-                <div class="glass-card" style="padding: 3rem; text-align: center;">
-                    <div class="wheel-container">
-                        <div class="wheel-outer-ring"></div>
-                        <div class="wheel-pointer" style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); z-index: 100;">
-                            <svg width="40" height="50" viewBox="0 0 30 40" fill="none">
-                                <path d="M15 40L0 10C0 10 0 0 15 0C30 0 30 10 30 10L15 40Z" fill="#fff"/>
-                                <path d="M15 30L5 10C5 10 5 4 15 4C25 4 25 10 25 10L15 30Z" fill="var(--primary)"/>
-                            </svg>
-                        </div>
-                        <div class="wheel-center-luxury"></div>
-                        <canvas id="wheel" width="720" height="720" style="width: 100%; height: 100%;"></canvas>
-                    </div>
-
-                    <button id="spin-btn" class="btn-cyber" style="margin-top: 2rem;">
-                        EXECUTE SPIN
-                    </button>
-                </div>
-
-            </div>
+            </section>
         </div>
     </main>
 
     <!-- Reward Arena Modal -->
-    <div class="modal-overlay" id="reward-modal" style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(20px); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 2rem;">
-        <div class="reward-card reward-modal-gaming" id="reward-card" style="text-align: center; max-width: 500px; width: 100%;">
-            <span class="reward-icon" id="reward-emoji" style="font-size: 5rem; display: block; margin-bottom: 2rem;">💎</span>
+    <div class="modal-overlay" id="reward-modal">
+        <div class="reward-card reward-modal-gaming" id="reward-card">
+            <span class="reward-icon" id="reward-emoji">💎</span>
             <h2 class="win-banner" id="reward-title">VICTORY</h2>
-            <p id="reward-desc" style="color: var(--text-mid); font-size: 1.1rem; margin-bottom: 2rem;">Your legendary loot code has been generated:</p>
+            <p id="reward-desc">Your legendary loot code has been generated:</p>
             
-            <div class="coupon-cyber" id="coupon-code">
-                LFG-99X
-            </div>
+            <div class="coupon-cyber" id="coupon-code">LFG-99X</div>
 
-            <button class="btn-cyber" id="close-modal">
-                CLAIM LOOT
-            </button>
+            <button class="btn-cyber" id="close-modal">CLAIM LOOT</button>
 
-            <div id="claim-success" style="display: none; margin-top: 2rem; color: var(--cyber-blue); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em;">
-                LOOT SECURED
-            </div>
+            <div id="claim-success" class="success-msg">LOOT SECURED</div>
 
-            <div id="gift-section" style="margin-top: 3rem; border-top: 1px solid var(--glass-border); padding-top: 2rem;">
-                <button id="show-gift-form" style="background: none; border: none; color: var(--text-low); font-family: var(--font-display); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; text-decoration: underline;">Transfer loot to friend</button>
-                <div id="gift-form-container" style="display: none; margin-top: 1.5rem;">
-                    <input type="email" id="friend-email" placeholder="RECIPIENT EMAIL" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 1rem; border-radius: 12px; width: 100%; color: #fff; margin-bottom: 1rem;">
-                    <button id="send-gift-btn" class="btn-cyber" style="padding: 1rem; font-size: 0.8rem;">INITIATE TRANSFER</button>
+            <div id="gift-section" class="gift-area">
+                <button id="show-gift-form" class="btn-text">Transfer loot to friend</button>
+                <div id="gift-form-container" class="gift-form-hidden">
+                    <input type="email" id="friend-email" placeholder="RECIPIENT EMAIL" class="minimal-input">
+                    <button id="send-gift-btn" class="btn-cyber btn-small">INITIATE TRANSFER</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <footer style="position: fixed; bottom: 0; width: 100%; padding: 2rem; border-top: 1px solid var(--glass-border); background: rgba(2,4,8,0.5); backdrop-filter: blur(10px);">
-        <div style="max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-display); font-size: 0.65rem; color: var(--text-low); letter-spacing: 0.2em; text-transform: uppercase;">
-            <p>&copy; 2026 PREMIUM SPIN // PROTOCOL V2.1</p>
-            <div style="display: flex; gap: 2rem;">
-                <a href="#" style="color: inherit; text-decoration: none;">Privacy</a>
-                <a href="#" style="color: inherit; text-decoration: none;">Terms</a>
-                <a href="#" style="color: inherit; text-decoration: none;">System Support</a>
+    <footer class="main-footer">
+        <div class="footer-content">
+            <p class="copyright">&copy; 2026 PREMIUM SPIN // PROTOCOL V2.1</p>
+            <div class="footer-links">
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+                <a href="#">System Support</a>
             </div>
         </div>
     </footer>
