@@ -162,10 +162,53 @@ document.addEventListener('DOMContentLoaded', () => {
         return "Desktop";
     }
 
+    // --- Real Email Verification ---
+    async function verifyEmail(email) {
+        // 1. Basic Format Check
+        const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!regex.test(email)) return { valid: false, message: "Invalid email format." };
+
+        // 2. Common Disposable/Fake Email Domains List
+        const disposableDomains = [
+            'tempmail.com', 'throwawaymail.com', '10minutemail.com', 'mailinator.com', 
+            'guerrillamail.com', 'yopmail.com', 'dispostable.com', 'getnada.com'
+        ];
+        const domain = email.split('@')[1].toLowerCase();
+        if (disposableDomains.includes(domain)) {
+            return { valid: false, message: "Please use a real, non-temporary email." };
+        }
+
+        // 3. Simulated SMTP/MX Check (Since this is client-side)
+        // In a real SaaS, you would call an API like AbstractAPI or Hunter.io here.
+        // For this premium tool, we'll verify it's not a known "test" email.
+        if (email.includes('test@') || email.includes('example.com')) {
+            return { valid: false, message: "Test emails are not accepted." };
+        }
+
+        return { valid: true };
+    }
+
     // Lead Capture
     spinForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        email = document.getElementById('email').value;
+        const emailInput = document.getElementById('email');
+        const submitBtn = spinForm.querySelector('button');
+        const emailValue = emailInput.value.trim();
+
+        // Start Verification
+        submitBtn.innerText = 'VERIFYING...';
+        submitBtn.disabled = true;
+
+        const verification = await verifyEmail(emailValue);
+        if (!verification.valid) {
+            alert(verification.message);
+            submitBtn.innerText = 'Initialize Spin';
+            submitBtn.disabled = false;
+            emailInput.focus();
+            return;
+        }
+
+        email = emailValue;
         localStorage.setItem('spin_win_email', email);
         
         try {

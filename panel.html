@@ -263,8 +263,34 @@
         </div>
     </div>
 
+    <!-- Email Intelligence Section -->
+    <div class="table-container" style="margin-top: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+            <h2 style="margin: 0;">Email Intelligence</h2>
+            <div class="filter-group">
+                <input type="text" class="search-box" id="email-search" placeholder="Search by email..." style="width: 250px;">
+            </div>
+        </div>
+        <div style="overflow-x: auto;">
+            <table id="email-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('email')">User Email ↕</th>
+                        <th>Domain</th>
+                        <th>Captured At</th>
+                        <th>Last Result</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="email-body">
+                    <!-- Injected by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Charts Section -->
-    <div class="charts-container">
+    <div class="charts-container" style="margin-top: 2rem;">
         <div class="chart-box">
             <h3 style="margin-bottom: 1rem;">Daily Lead Capture</h3>
             <canvas id="leadsChart"></canvas>
