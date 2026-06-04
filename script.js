@@ -155,40 +155,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     });
 
+    // --- Helpers for Enhanced Tracking ---
+    function parseUserAgent() {
+        const ua = navigator.userAgent;
+        let browser = "Unknown";
+        let os = "Unknown";
+
+        // Browser Detection
+        if (ua.indexOf("Chrome") > -1) browser = "Chrome";
+        else if (ua.indexOf("Safari") > -1) browser = "Safari";
+        else if (ua.indexOf("Firefox") > -1) browser = "Firefox";
+        else if (ua.indexOf("MSIE") > -1 || !!document.documentMode) browser = "IE";
+        else if (ua.indexOf("Edge") > -1) browser = "Edge";
+
+        // OS Detection
+        if (ua.indexOf("Win") > -1) os = "Windows";
+        else if (ua.indexOf("Mac") > -1) os = "MacOS";
+        else if (ua.indexOf("X11") > -1) os = "UNIX";
+        else if (ua.indexOf("Linux") > -1) os = "Linux";
+        else if (ua.indexOf("Android") > -1) os = "Android";
+        else if (ua.indexOf("iPhone") > -1) os = "iOS";
+
+        return { browser, os };
+    }
+
+    function getDeviceType() {
+        const ua = navigator.userAgent;
+        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+            return "Tablet";
+        }
+        if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) {
+            return "Mobile";
+        }
+        return "Desktop";
+    }
+
     // Lead Capture
     spinForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         email = document.getElementById('email').value;
         localStorage.setItem('spin_win_email', email);
         
-        // --- NEW: Lead Tracking Logic ---
+        // --- ENHANCED: Lead Tracking Logic ---
         try {
-            // Get IP and Geolocation
             const geoRes = await fetch('https://freeipapi.com/api/json');
             const geoData = await geoRes.json();
+            const { browser, os } = parseUserAgent();
             
             const leadData = {
                 email: email,
                 timestamp: new Date().toISOString(),
                 ip: geoData.ipAddress || 'Unknown',
                 location: `${geoData.cityName}, ${geoData.regionName}, ${geoData.countryName}`,
-                browser: navigator.userAgent,
-                platform: navigator.platform,
+                browser: browser,
+                os: os,
+                device: getDeviceType(),
+                userAgent: navigator.userAgent,
                 language: navigator.language,
                 screen: `${window.screen.width}x${window.screen.height}`,
-                referrer: document.referrer || 'Direct'
+                referrer: document.referrer || 'Direct',
+                result: 'Pending',
+                code: ''
             };
 
-            // Save to Local Leads Database
             const allLeads = JSON.parse(localStorage.getItem('spin_win_leads') || '[]');
             allLeads.push(leadData);
             localStorage.setItem('spin_win_leads', JSON.stringify(allLeads));
-            
-            console.log('Lead tracked:', leadData);
         } catch (err) {
             console.error('Lead tracking failed:', err);
         }
-        // --- END: Lead Tracking Logic ---
+        // --- END: Enhanced Tracking ---
 
         // 1. Firstly, hide lead-capture card with a pronounced exit animation
         leadCapture.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -228,17 +264,21 @@ document.addEventListener('DOMContentLoaded', () => {
         segments.forEach((seg, i) => {
             const angle = i * arc;
             
-            // Draw slice
+            // Draw slice with premium gradient
             ctx.beginPath();
-            ctx.fillStyle = seg.color;
+            const gradient = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
+            gradient.addColorStop(0, seg.color);
+            gradient.addColorStop(1, adjustColor(seg.color, -30)); // Darker edge
+            
+            ctx.fillStyle = gradient;
             ctx.moveTo(radius, radius);
             ctx.arc(radius, radius, radius - 10, angle, angle + arc);
             ctx.lineTo(radius, radius);
             ctx.fill();
             
-            // Add stroke
-            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-            ctx.lineWidth = 2;
+            // Luxury inner glow stroke
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 4;
             ctx.stroke();
 
             // Draw Label and Icon
@@ -246,25 +286,44 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.translate(radius, radius);
             ctx.rotate(angle + arc / 2);
             
-            // Draw Label
+            // Draw Label (Modern Gaming Font Style)
             ctx.textAlign = 'right';
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 20px Inter';
-            ctx.fillText(seg.label, radius - 80, 10);
+            ctx.font = 'bold 22px "Orbitron"'; // Changed to Gaming Font
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.fillText(seg.label, radius - 90, 10);
 
             // Draw Icon
-            ctx.font = '30px Inter';
-            ctx.fillText(seg.icon, radius - 40, 12);
+            ctx.font = '32px "Inter"';
+            ctx.fillText(seg.icon, radius - 45, 12);
             
             ctx.restore();
         });
 
-        // Outer Ring
+        // Sophisticated Outer Ring
         ctx.beginPath();
         ctx.arc(radius, radius, radius - 5, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 10;
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 15;
         ctx.stroke();
+    }
+
+    // Utility to darken/lighten colors for gradients
+    function adjustColor(hex, amt) {
+        let usePound = false;
+        if (hex[0] == "#") {
+            hex = hex.slice(1);
+            usePound = true;
+        }
+        let num = parseInt(hex, 16);
+        let r = (num >> 16) + amt;
+        if (r > 255) r = 255; else if (r < 0) r = 0;
+        let b = ((num >> 8) & 0x00FF) + amt;
+        if (b > 255) b = 255; else if (b < 0) b = 0;
+        let g = (num & 0x0000FF) + amt;
+        if (g > 255) g = 255; else if (g < 0) g = 0;
+        return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
     }
 
     // Spin Logic
@@ -330,6 +389,18 @@ document.addEventListener('DOMContentLoaded', () => {
         isSpinning = false;
         const result = segments[index];
         
+        // --- ENHANCED: Record Win in Lead Data ---
+        if (email) {
+            const allLeads = JSON.parse(localStorage.getItem('spin_win_leads') || '[]');
+            const leadIndex = allLeads.findLastIndex(l => l.email === email);
+            if (leadIndex !== -1) {
+                allLeads[leadIndex].result = result.label;
+                allLeads[leadIndex].code = result.code;
+                localStorage.setItem('spin_win_leads', JSON.stringify(allLeads));
+            }
+        }
+        // --- END: Enhanced Record ---
+
         if (result.label !== 'FREE SPIN') {
             localStorage.setItem('spin_win_last_spin', Date.now().toString());
             spinsLeftEl.innerText = '0';

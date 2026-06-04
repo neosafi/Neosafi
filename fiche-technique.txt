@@ -5,72 +5,64 @@
 1. PRÉSENTATION DU PROJET
 -------------------------
 Nom : Premium Spin & Win
-Version : 2.0 (Lead Tracking & Dynamic Admin Edition)
+Version : 2.1 (Premium Analytics & Luxury UI Edition)
 Type : Application Web de Marketing Interactive (Gamification)
-Objectif : Capture de leads, engagement client et distribution de récompenses.
+Objectif : Capture de leads à haute valeur, intelligence utilisateur avancée et distribution de récompenses premium.
 
 2. ARCHITECTURE TECHNIQUE
 -------------------------
-- Langages : HTML5, CSS3 (Vanilla), JavaScript (ES6+)
-- Mode : Client-side uniquement (Static Site)
-- Stockage : LocalStorage (Synchronisation inter-pages)
-- APIs Externes : FreeIPAPI (Géolocalisation & IP)
-- Design : Glassmorphism, Ethereal Particles UI, Responsive Mobile-First
+- Frontend : HTML5, CSS3 (Advanced Variables & Keyframes), JavaScript (ES6+)
+- Graphismes : Canvas 2D (Wheel, Particle System, Dynamic Orbs)
+- Audio : Web Audio API (Procedural SFX generation)
+- Analytics : Chart.js (Timeline & Device distribution)
+- Persistance : LocalStorage (Structured Namespacing)
+- APIs Externes : FreeIPAPI (Geolocation)
+- Design : High-End Glassmorphism, Luxury Dark/Light Palette, Staggered Animations
 
 3. FONCTIONNALITÉS CLIENT (index.html / script.js)
 -------------------------------------------------
-- Formulaire de Capture : Validation d'email avant accès à la roue.
-- Roue de la Fortune :
-    * 8 segments personnalisables.
-    * Système de poids (Weighted Probability) pour contrôler la rareté des gains.
-    * Rendu graphique haute performance sur Canvas 2D.
-    * Effets sonores procéduraux (AudioContext API).
-- Système de Récompenses :
-    * Modal de victoire avec code promo.
-    * Bouton de copie rapide avec feedback visuel.
-    * Option "Offrir à un ami" (Simulation).
-- Historique des Gains : Affichage des derniers gains avec option de recopie du code.
-- Tracking Avancé (Invisible) :
-    * Capture IP, Ville, Région, Pays.
-    * Capture Browser Agent, Plateforme, Langue.
-    * Capture Résolution d'écran et Referrer.
+- Premium Aesthetic : Nouveau design "Luxury Gaming" avec effets de flou avancés.
+- Enhanced Tracking :
+    * Détection intelligente du Navigateur & OS (parsing User Agent).
+    * Identification du type de terminal (Mobile, Tablette, Desktop).
+    * Capture du Referrer et de la Résolution d'écran.
+- Win Attribution : Chaque gain est désormais lié directement au lead capturé dans la base de données locale.
+- Feedback Visuel : Système de confettis et d'animations d'entrée synchronisées.
 
 4. PANNEAU D'ADMINISTRATION (panel.html / panel.js)
 --------------------------------------------------
-- Dashboard des Leads :
-    * Tableau récapitulatif de toutes les données capturées.
-    * Badge de localisation et formatage temporel.
-    * Bouton "Export CSV" : Génération de fichier Excel/CSV en un clic.
-    * Bouton "Clear All" : Réinitialisation de la base de données locale.
-- Gestion de la Roue (Wheel Management) :
-    * Modification en temps réel des labels et emojis.
-    * Contrôle de la Difficulté : Ajustement des "Weights" (Poids).
-    * Mise à jour des Codes Promos : Édition directe des codes distribués.
-    * Personnalisation Visuelle : Sélecteurs de couleurs pour chaque segment.
+- Intelligence Dashboard :
+    * KPI Cards : Total Leads, Taux de Conversion, Top Pays, Gain le plus fréquent.
+    * Visualisations : Graphique temporel des captures et répartition des terminaux.
+- Gestion des Données :
+    * Tableau interactif avec tri (Date, Email, Localisation) et recherche en temps réel.
+    * Filtres avancés par Pays et Type de terminal.
+    * Modal "User Intelligence" : Vue détaillée profilée de chaque lead.
+- Exportation Multiformat : Support JSON et CSV pour intégration CRM.
+- Configuration Dynamique : Édition complète de la roue (poids, couleurs, codes, emojis).
 
-5. LOGIQUE DE CALCUL (DIFFIculté)
----------------------------------
-Le système utilise un algorithme de sélection pondérée :
-- Probabilité d'un segment = (Poids du segment / Somme totale des poids) * 100
-- Exemple : Un segment avec poids 1 sur un total de 100 a 1% de chance de gagner.
+5. LOGIQUE DE CALCUL
+--------------------
+- Probabilité Pondérée : Algorithme de sélection cumulative pour garantir la rareté des gros lots.
+- Device Detection : Logique heuristique basée sur les patterns du User Agent.
+- Conversion Tracking : Ratio Leads Uniques / Total Entrées (Simulation session).
 
 6. STRUCTURE DES FICHIERS
 -------------------------
 /spin-win
-├── index.html       # Interface client principale
-├── script.js        # Logique de la roue et tracking
-├── style.css        # Design global et animations
-├── panel.html       # Tableau de bord administratif
-├── panel.js         # Logique de gestion et export
-├── assets/
-│   └── logo.PNG     # Identité visuelle
-└── coupons.txt      # (Référence) Liste initiale des coupons
+├── index.html       # Client Premium Interface
+├── script.js        # Engine, Audio & Tracking Logic
+├── style.css        # Luxury Design System
+├── panel.html       # Advanced Analytics Dashboard
+├── panel.js         # Analytics, Filtering & Config Management
+├── assets/          # Visual Identity Assets
+└── fiche-technique.txt # Cette documentation
 
-7. CONFIGURATION & SÉCURITÉ
----------------------------
-- Sécurité : Le panneau admin (panel.html) est isolé de l'interface publique.
-- Persistance : Les réglages et leads sont conservés localement dans le navigateur.
-- Exportation : Format CSV compatible Excel/Google Sheets.
+7. SÉCURITÉ & PRIVACY
+---------------------
+- Accès Admin : Authentification locale sécurisée.
+- Privacy-First : Toutes les données restent dans le navigateur de l'administrateur.
+- Performance : Optimisé pour charger en moins d'une seconde sur connexions 4G.
 
 ============================================================
                  FIN DE LA FICHE TECHNIQUE
