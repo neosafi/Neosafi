@@ -65,21 +65,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let spinLimit = 1;
 
     // --- Load Config from Supabase ---
-    async function loadGlobalConfig() {
+async function loadGlobalConfig() {
         try {
             const { data: config, error } = await supabase.from('system_config').select('*');
             if (error) throw error;
 
             config.forEach(item => {
-                if (item.key === 'spin_limit') spinLimit = parseInt(item.value);
-                if (item.key === 'wheel_segments') segments = item.value;
+                if (item.key === 'spin_limit') {
+                    // spin_limit is stored as JSONB in DB (e.g. 1). Accept number/string.
+                    const raw = item.value;
+                    const parsed = typeof raw === 'number' ? raw : parseInt(String(raw));
+                    if (!Number.isNaN(parsed)) spinLimit = parsed;
+                }
+                if (item.key === 'wheel_segments') {
+                    segments = item.value;
+                }
             });
 
-            if (!segments || segments.length === 0) segments = defaultSegments;
-            
+            if (!Array.isArray(segments) || segments.length === 0) segments = defaultSegments;
             drawWheel();
         } catch (err) {
-            console.error('Config load failed, using defaults:', err);
+            console.error('Config load failed (likely RLS/406). Using defaults:', err);
+            spinLimit = 1;
             segments = defaultSegments;
             drawWheel();
         }

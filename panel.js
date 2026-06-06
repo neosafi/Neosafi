@@ -210,18 +210,25 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error("Fetch leads failed:", err); }
     }
 
-    async function loadSystemConfig() {
+async function loadSystemConfig() {
         try {
             const { data, error } = await supabase
                 .from('system_config')
                 .select('*')
                 .eq('key', 'spin_limit')
                 .single();
-            
+
             if (!error && data) {
-                document.getElementById('cfg-spin-limit').value = data.value;
+                const raw = data.value;
+                const parsed = typeof raw === 'number' ? raw : parseInt(String(raw));
+                document.getElementById('cfg-spin-limit').value = Number.isNaN(parsed) ? (raw ?? 1) : parsed;
             }
-        } catch (err) {}
+        } catch (err) {
+            console.warn('System config fetch failed (likely RLS/406). Using default spin_limit=1', err);
+            if (document.getElementById('cfg-spin-limit')) {
+                document.getElementById('cfg-spin-limit').value = 1;
+            }
+        }
     }
 
     document.getElementById('save-system-config').addEventListener('click', async () => {
@@ -475,20 +482,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Wheel Configuration Logic ---
-    async function loadConfig() {
+async function loadConfig() {
         const configBody = document.getElementById('config-body');
+        const defaultSegments = [
+            { label: '100% OFF', color: '#6366F1', weight: 2, icon: '🔥', code: 'ZQYB214RZC' },
+            { label: 'FREE PRODUCT', color: '#8B5CF6', weight: 3, icon: '🎁', code: 'FREEGIFT' },
+            { label: 'FREE SPIN', color: '#EC4899', weight: 15, icon: '🔄', code: 'RETRY' },
+            { label: '50% OFF', color: '#1E293B', weight: 5, icon: '💸', code: 'U7LUI0MZ9Q' },
+            { label: 'BETTER LUCK', color: '#0F172A', weight: 35, icon: '😢', code: 'TRYAGAIN' },
+            { label: 'BUNDLE', color: '#10B981', weight: 5, icon: '📦', code: 'BUNDLE' },
+            { label: '25% OFF', color: '#1E293B', weight: 25, icon: '🏷️', code: 'LBVFFODD9Z' },
+            { label: 'MYSTERY', color: '#4F46E5', weight: 10, icon: '💎', code: 'MYSTERY' }
+        ];
+
         try {
             const { data, error } = await supabase.from('system_config').select('*').eq('key', 'wheel_segments').single();
-            let segments = (!error && data) ? data.value : [
-                { label: '100% OFF', color: '#6366F1', weight: 2, icon: '🔥', code: 'ZQYB214RZC' },
-                { label: 'FREE PRODUCT', color: '#8B5CF6', weight: 3, icon: '🎁', code: 'FREEGIFT' },
-                { label: 'FREE SPIN', color: '#EC4899', weight: 15, icon: '🔄', code: 'RETRY' },
-                { label: '50% OFF', color: '#1E293B', weight: 5, icon: '💸', code: 'U7LUI0MZ9Q' },
-                { label: 'BETTER LUCK', color: '#0F172A', weight: 35, icon: '😢', code: 'TRYAGAIN' },
-                { label: 'BUNDLE', color: '#10B981', weight: 5, icon: '📦', code: 'BUNDLE' },
-                { label: '25% OFF', color: '#1E293B', weight: 25, icon: '🏷️', code: 'LBVFFODD9Z' },
-                { label: 'MYSTERY', color: '#4F46E5', weight: 10, icon: '💎', code: 'MYSTERY' }
-            ];
+            let segments = (!error && data && data.value) ? data.value : defaultSegments;
+
+            if (!Array.isArray(segments) || segments.length === 0) segments = defaultSegments;
 
             const totalWeight = segments.reduce((sum, s) => sum + (parseInt(s.weight) || 0), 0);
             configBody.innerHTML = segments.map((seg, i) => {
@@ -504,7 +515,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateProbabilities();" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">Delete</button></td>
                 </tr>`;
             }).join('');
-        } catch (err) {}
+        } catch (err) {
+            console.warn('Wheel config fetch failed (likely RLS/406). Using defaults:', err);
+            configBody.innerHTML = defaultSegments.map((seg, i) => {
+                const prob = (defaultSegments[i].weight / defaultSegments.reduce((s, x) => s + x.weight, 0)) * 100;
+                return `
+                <tr data-index="${i}">
+                    <td><input type="text" class="cfg-input cfg-label" value="${seg.label}" style="width: 140px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 8px; color: white;"></td>
+                    <td><input type="text" class="cfg-input cfg-icon" value="${seg.icon}" style="width: 50px; text-align: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 8px; color: white;"></td>
+                    <td><input type="number" class="cfg-input cfg-weight" value="${seg.weight}" oninput="updateProbabilities()" style="width: 70px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 8px; color: white;"></td>
+                    <td><span class="cfg-prob" style="font-family: monospace; color: var(--text-muted);">${prob.toFixed(1)}%</span></td>
+                    <td><input type="text" class="cfg-input cfg-code" value="${seg.code}" style="width: 140px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 0.5rem; border-radius: 8px; color: white;"></td>
+                    <td><input type="color" class="cfg-input cfg-color" value="${seg.color}" style="background: none; border: none; height: 35px; width: 35px; cursor: pointer;"></td>
+                    <td><button class="btn btn-secondary btn-sm" onclick="this.closest('tr').remove(); updateProbabilities();" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2);">Delete</button></td>
+                </tr>`;
+            }).join('');
+        }
     }
 
     document.getElementById('save-config').addEventListener('click', async () => {
