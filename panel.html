@@ -222,7 +222,7 @@
         }
     </style>
 </head>
-<body>
+<body class="panel-page">
     <!-- Simple Auth Overlay -->
     <div id="login-overlay">
         <div class="glass-card" style="width: 400px; text-align: center; border: 1px solid var(--primary);">
@@ -236,7 +236,7 @@
 
             <div style="margin-bottom: 1.5rem; text-align: center;">
                 <p style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Authorized Administrator</p>
-                <p style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">neosafi5@gmail.com</p>
+<p style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">n••••••••@gmail.com</p>
             </div>
 
             <div class="input-group">
@@ -293,8 +293,8 @@
                 <input type="text" class="search-box" id="email-search" placeholder="Search by email..." style="width: 250px;">
             </div>
         </div>
-        <div style="overflow-x: auto;">
-            <table id="email-table">
+            <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+            <table id="email-table" style="min-width: 640px;">
                 <thead>
                     <tr>
                         <th onclick="sortTable('email')">User Email ↕</th>

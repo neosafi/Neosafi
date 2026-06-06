@@ -72,6 +72,12 @@ body {
     padding-top: 80px; 
 }
 
+body.panel-page {
+    padding-top: 0;
+    background: #020617;
+}
+
+
 @media (max-width: 768px) {
     body { padding-top: 70px; }
 }
