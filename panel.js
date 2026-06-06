@@ -105,6 +105,83 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start Auth Check
     checkAuth();
 
+    // --- Visitor Info UI ---
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '<')
+            .replaceAll('>', '>')
+            .replaceAll('"', '"')
+            .replaceAll("'", '&#039;');
+    }
+
+
+    function renderVisitorInfo(lead) {
+        const ids = {
+            email: 'visitor-email',
+            timestamp: 'visitor-timestamp',
+            ip: 'visitor-ip',
+            location: 'visitor-location',
+            device: 'visitor-device',
+            os: 'visitor-os',
+            browser: 'visitor-browser',
+            referrer: 'visitor-referrer',
+            result: 'visitor-result',
+            code: 'visitor-code'
+        };
+
+        const get = (key) => document.getElementById(ids[key]);
+        if (!lead) {
+            Object.values(ids).forEach(id => { const el = document.getElementById(id); if (el) el.innerText = '-'; });
+            return;
+        }
+
+        const visitorEmail = get('email');
+        if (visitorEmail) visitorEmail.innerText = lead.email === 'Anonymous' ? '👤 Anonymous Visitor' : lead.email;
+
+        const tsEl = get('timestamp');
+        if (tsEl) tsEl.innerText = lead.timestamp ? new Date(lead.timestamp).toLocaleString() : '-';
+
+        const ipEl = get('ip');
+        if (ipEl) ipEl.innerText = lead.ip || '-';
+
+        const locEl = get('location');
+        if (locEl) locEl.innerText = lead.location || '-';
+
+        const deviceEl = get('device');
+        if (deviceEl) deviceEl.innerText = lead.device || 'Desktop';
+
+        const osEl = get('os');
+        if (osEl) osEl.innerText = lead.os || 'Unknown';
+
+        const browserEl = get('browser');
+        if (browserEl) browserEl.innerText = lead.browser || 'Unknown';
+
+        const refEl = get('referrer');
+        if (refEl) refEl.innerText = lead.referrer || 'Direct';
+
+        const resultEl = get('result');
+        if (resultEl) {
+            const result = lead.result || 'None';
+            resultEl.innerText = result;
+            resultEl.style.color = (result && result !== 'Pending' && result !== 'BETTER LUCK' && result !== 'FREE SPIN') ? 'var(--success)' : 'var(--warning)';
+        }
+
+        const codeEl = get('code');
+        if (codeEl) {
+            const code = lead.code || 'N/A';
+            codeEl.innerText = code;
+        }
+    }
+
+    async function refreshVisitorInfo() {
+        if (allLeads.length === 0) {
+            renderVisitorInfo(null);
+            return;
+        }
+        renderVisitorInfo(allLeads[0]);
+    }
+
     // --- Dashboard Initialization ---
     async function initDashboard() {
         await fetchLeads();
@@ -113,9 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
         populateFilters();
         renderTable();
         renderEmailTable();
+        await refreshVisitorInfo();
         loadConfig();
         loadSystemConfig();
     }
+
 
     async function fetchLeads() {
         try {

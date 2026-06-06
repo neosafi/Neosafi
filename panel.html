@@ -265,6 +265,29 @@
         </div>
     </div>
 
+    <!-- Visitor Info Section -->
+    <div class="table-container" style="margin-top: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+            <h2 style="margin: 0;">Dernier Visiteur (dernier email saisi)</h2>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <button class="btn btn-secondary btn-sm" id="refresh-visitor" style="border: 1px solid var(--glass-border);">Refresh Visitor</button>
+            </div>
+        </div>
+
+        <div class="glass-card" style="padding: 1.5rem;">
+            <div class="detail-row"><span class="detail-label">Email</span><span class="detail-value" id="visitor-email">-</span></div>
+            <div class="detail-row"><span class="detail-label">Timestamp</span><span class="detail-value" id="visitor-timestamp">-</span></div>
+            <div class="detail-row"><span class="detail-label">IP Address</span><span class="detail-value" id="visitor-ip">-</span></div>
+            <div class="detail-row"><span class="detail-label">Location</span><span class="detail-value" id="visitor-location">-</span></div>
+            <div class="detail-row"><span class="detail-label">Device</span><span class="detail-value" id="visitor-device">-</span></div>
+            <div class="detail-row"><span class="detail-label">OS</span><span class="detail-value" id="visitor-os">-</span></div>
+            <div class="detail-row"><span class="detail-label">Browser</span><span class="detail-value" id="visitor-browser">-</span></div>
+            <div class="detail-row"><span class="detail-label">Referrer</span><span class="detail-value" id="visitor-referrer">-</span></div>
+            <div class="detail-row"><span class="detail-label">Win Result</span><span class="detail-value" id="visitor-result" style="color: var(--success);">-</span></div>
+            <div class="detail-row"><span class="detail-label">Promo Code</span><span class="detail-value" id="visitor-code" style="font-family: monospace;">-</span></div>
+        </div>
+    </div>
+
     <!-- KPI Section -->
     <div class="dashboard-grid">
         <div class="kpi-card">
@@ -284,6 +307,7 @@
             <div class="kpi-value" id="kpi-top-prize">-</div>
         </div>
     </div>
+
 
     <!-- Email Intelligence Section -->
     <div class="table-container" style="margin-top: 2rem;">
