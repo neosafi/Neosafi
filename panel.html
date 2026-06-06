@@ -199,6 +199,27 @@
             align-items: center;
             justify-content: center;
         }
+
+        #login-overlay input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--glass-border);
+            padding: 1rem;
+            border-radius: 12px;
+            color: #fff;
+            margin-bottom: 1rem;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        #login-overlay input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .input-group {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -213,21 +234,22 @@
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem;">Protocol V2.1 // Authentication Required</p>
             </div>
 
-            <div class="input-group">
-                <input type="password" id="admin-password" placeholder="System Password">
+            <div style="margin-bottom: 1.5rem; text-align: center;">
+                <p style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">Authorized Administrator</p>
+                <p style="color: var(--primary); font-weight: 600; font-size: 0.9rem;">neosafi5@gmail.com</p>
             </div>
+
             <div class="input-group">
-                <input type="text" id="option-code" placeholder="Enter Access Code">
+                <input type="text" id="option-code" placeholder="Enter 6-Digit Code from Email">
             </div>
             
-            <button class="btn btn-primary" id="login-btn" style="margin-bottom: 1.5rem;">Decrypt Dashboard</button>
+            <button class="btn btn-primary" id="login-btn" style="margin-bottom: 1.5rem;">Verify & Enter Dashboard</button>
             
             <div style="border-top: 1px solid var(--glass-border); padding-top: 1.5rem;">
-                <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">Don't have an access code?</p>
                 <button class="btn btn-secondary btn-sm" id="request-code-btn" style="width: 100%; border: 1px solid var(--glass-border); color: var(--primary);">
-                    Request Code to neosafi5@gmail.com
+                    Send Access Code to my Email
                 </button>
-                <p id="email-status" style="color: var(--success); font-size: 0.7rem; margin-top: 0.75rem; display: none;">✔ Code sent to your inbox.</p>
+                <p id="email-status" style="color: var(--success); font-size: 0.8rem; margin-top: 0.75rem; display: none; font-weight: bold;">✔ Code sent! Check your inbox.</p>
             </div>
 
             <p id="login-error" style="color: #ef4444; margin-top: 1rem; display: none; font-size: 0.8rem; font-weight: 700;">⚠ ACCESS DENIED: Invalid Credentials</p>
@@ -351,6 +373,17 @@
     </div>
 
     <!-- Config Management -->
+    <div class="table-container" style="margin-top: 2rem; margin-bottom: 2rem;">
+        <h2 style="margin-bottom: 1.5rem;">System Configuration</h2>
+        <div class="glass-card" style="padding: 1.5rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+                <label style="display: block; font-size: 0.8rem; color: var(--text-mid); text-transform: uppercase; margin-bottom: 0.5rem;">Spins Per User (24h Window)</label>
+                <input type="number" id="cfg-spin-limit" value="1" min="1" max="100" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 0.75rem; border-radius: 12px; color: white; outline: none;">
+            </div>
+            <button class="btn btn-primary" id="save-system-config">Save System Settings</button>
+        </div>
+    </div>
+
     <div class="table-container" style="margin-top: 2rem; margin-bottom: 5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <h2 style="margin: 0;">Wheel Configuration</h2>
@@ -378,6 +411,9 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script src="panel.js"></script>
 </body>
 </html>

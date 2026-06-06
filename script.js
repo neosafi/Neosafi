@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSpinning = false;
     let rotation = 0;
     let email = localStorage.getItem('spin_win_email');
-    const lastSpin = localStorage.getItem('spin_win_last_spin');
     let winHistory = JSON.parse(localStorage.getItem('spin_win_history') || '[]');
     let soundEnabled = localStorage.getItem('spin_win_sound') !== 'false';
     let currentTheme = localStorage.getItem('spin_win_theme') || 'dark';
@@ -34,6 +33,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendGiftBtn = document.getElementById('send-gift-btn');
     const claimSuccess = document.getElementById('claim-success');
     const giftSection = document.getElementById('gift-section');
+    const copyBtn = document.getElementById('copy-btn');
+
+    // Copy Code Logic
+    copyBtn.addEventListener('click', () => {
+        const code = couponBox.innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            copyBtn.classList.add('copy-success');
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+                copyBtn.classList.remove('copy-success');
+            }, 2000);
+        });
+    });
 
     // Config - Weighted Probability
     const defaultSegments = [
@@ -47,144 +61,113 @@ document.addEventListener('DOMContentLoaded', () => {
         { label: 'MYSTERY', color: '#4F46E5', weight: 10, icon: '💎', code: 'MYSTERY' }
     ];
 
-    let segments = JSON.parse(localStorage.getItem('spin_win_config') || JSON.stringify(defaultSegments));
+    let segments = [];
+    let spinLimit = 1;
+
+    // --- Load Config from Supabase ---
+    async function loadGlobalConfig() {
+        try {
+            const { data: config, error } = await supabase.from('system_config').select('*');
+            if (error) throw error;
+
+            config.forEach(item => {
+                if (item.key === 'spin_limit') spinLimit = parseInt(item.value);
+                if (item.key === 'wheel_segments') segments = item.value;
+            });
+
+            if (!segments || segments.length === 0) segments = defaultSegments;
+            
+            drawWheel();
+        } catch (err) {
+            console.error('Config load failed, using defaults:', err);
+            segments = defaultSegments;
+            drawWheel();
+        }
+    }
 
     // Initialize
     document.documentElement.setAttribute('data-theme', currentTheme);
     updateSoundIcon();
     updateHistoryUI();
+    loadGlobalConfig();
     
     // Initial entrance logic
     if (!email) {
         leadCapture.style.display = 'block';
         wheelWrapper.style.display = 'none';
+        trackVisitor('Anonymous'); 
     } else {
         leadCapture.style.display = 'none';
         wheelWrapper.classList.add('active-grid');
-        
-        // Show status based on last spin
-        if (lastSpin && Date.now() - parseInt(lastSpin) < 24 * 60 * 60 * 1000) {
-            spinsLeftEl.innerText = '0';
-            spinBtn.disabled = true;
-            spinBtn.innerText = 'NO SPINS LEFT';
-        } else {
-            spinsLeftEl.innerText = '1';
+        checkSpinLimit(email);
+    }
+
+    async function checkSpinLimit(userEmail) {
+        try {
+            const now = new Date();
+            const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+            
+            const { data: recentSpins, error } = await supabase
+                .from('leads')
+                .select('timestamp')
+                .eq('email', userEmail)
+                .neq('result', 'Pending')
+                .neq('result', 'FREE SPIN')
+                .gt('timestamp', twentyFourHoursAgo);
+
+            if (error) throw error;
+
+            const spinsUsed = recentSpins.length;
+            const spinsLeft = Math.max(0, spinLimit - spinsUsed);
+            spinsLeftEl.innerText = spinsLeft;
+
+            if (spinsLeft <= 0) {
+                spinBtn.disabled = true;
+                spinBtn.innerText = 'NO SPINS LEFT';
+                return false;
+            } else {
+                spinBtn.disabled = false;
+                spinBtn.innerText = 'EXECUTE SPIN';
+                return true;
+            }
+        } catch (err) {
+            console.error('Limit check failed:', err);
+            return true; 
         }
     }
-    
-    drawWheel();
-    initParticles();
 
-    // Theme Toggle
-    themeToggle.addEventListener('click', () => {
-        currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        localStorage.setItem('spin_win_theme', currentTheme);
-    });
+    // --- Visitor Tracking (Supabase) ---
+    async function trackVisitor(userEmail) {
+        try {
+            const geoRes = await fetch('https://freeipapi.com/api/json');
+            const geoData = await geoRes.json();
+            const { browser, os } = parseUserAgent();
+            
+            const leadData = {
+                email: userEmail, 
+                timestamp: new Date().toISOString(),
+                ip: geoData.ipAddress || 'Unknown',
+                location: `${geoData.cityName}, ${geoData.regionName}, ${geoData.countryName}`,
+                browser, os, device: getDeviceType(),
+                user_agent: navigator.userAgent, 
+                language: navigator.language,
+                screen: `${window.screen.width}x${window.screen.height}`,
+                referrer: document.referrer || 'Direct', 
+                result: 'Pending', 
+                code: ''
+            };
 
-    // Sound Toggle
-    soundToggle.addEventListener('click', () => {
-        soundEnabled = !soundEnabled;
-        localStorage.setItem('spin_win_sound', soundEnabled);
-        updateSoundIcon();
-        if (soundEnabled && !audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    });
-
-    function updateSoundIcon() {
-        soundToggle.innerHTML = soundEnabled ? 
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>' :
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9l-3 3H2v6h6l3 3V3.05a9.38 9.38 0 0 1 3.5 1.5"></path></svg>';
-    }
-
-    // Procedural Audio
-    function playTick() {
-        if (!soundEnabled) return;
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    function playWin() {
-        if (!soundEnabled) return;
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const notes = [523.25, 659.25, 783.99, 1046.50]; 
-        notes.forEach((freq, i) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
-            gain.gain.setValueAtTime(0, audioCtx.currentTime + i * 0.1);
-            gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + i * 0.1 + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.3);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(audioCtx.currentTime + i * 0.1);
-            osc.stop(audioCtx.currentTime + i * 0.1 + 0.3);
-        });
-    }
-
-    // Helpers
-    function parseUserAgent() {
-        const ua = navigator.userAgent;
-        let browser = "Unknown", os = "Unknown";
-        if (ua.indexOf("Chrome") > -1) browser = "Chrome";
-        else if (ua.indexOf("Safari") > -1) browser = "Safari";
-        else if (ua.indexOf("Firefox") > -1) browser = "Firefox";
-        else if (ua.indexOf("Edge") > -1) browser = "Edge";
-        if (ua.indexOf("Win") > -1) os = "Windows";
-        else if (ua.indexOf("Mac") > -1) os = "MacOS";
-        else if (ua.indexOf("Android") > -1) os = "Android";
-        else if (ua.indexOf("iPhone") > -1) os = "iOS";
-        return { browser, os };
-    }
-
-    function getDeviceType() {
-        const ua = navigator.userAgent;
-        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "Tablet";
-        if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) return "Mobile";
-        return "Desktop";
+            await supabase.from('leads').insert([leadData]);
+        } catch (err) { console.error('Lead tracking failed:', err); }
     }
 
     // --- Real Email Verification ---
     async function verifyEmail(email) {
-        // 1. Basic Format Check
         const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         if (!regex.test(email)) return { valid: false, message: "Invalid email format." };
-
-        // 2. Common Disposable/Fake Email Domains List
-        const disposableDomains = [
-            'tempmail.com', 'throwawaymail.com', '10minutemail.com', 'mailinator.com', 
-            'guerrillamail.com', 'yopmail.com', 'dispostable.com', 'getnada.com'
-        ];
+        const disposableDomains = ['tempmail.com', 'throwawaymail.com', '10minutemail.com', 'mailinator.com', 'yopmail.com'];
         const domain = email.split('@')[1].toLowerCase();
-        if (disposableDomains.includes(domain)) {
-            return { valid: false, message: "Please use a real, non-temporary email." };
-        }
-
-        // 3. Simulated SMTP/MX Check (Since this is client-side)
-        // In a real SaaS, you would call an API like AbstractAPI or Hunter.io here.
-        // For this premium tool, we'll verify it's not a known "test" email.
-        if (email.includes('test@') || email.includes('example.com')) {
-            return { valid: false, message: "Test emails are not accepted." };
-        }
-
+        if (disposableDomains.includes(domain)) return { valid: false, message: "Please use a real email." };
         return { valid: true };
     }
 
@@ -195,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const submitBtn = spinForm.querySelector('button');
         const emailValue = emailInput.value.trim();
 
-        // Start Verification
         submitBtn.innerText = 'VERIFYING...';
         submitBtn.disabled = true;
 
@@ -211,37 +193,21 @@ document.addEventListener('DOMContentLoaded', () => {
         email = emailValue;
         localStorage.setItem('spin_win_email', email);
         
-        try {
-            const geoRes = await fetch('https://freeipapi.com/api/json');
-            const geoData = await geoRes.json();
-            const { browser, os } = parseUserAgent();
-            const leadData = {
-                email: email, timestamp: new Date().toISOString(),
-                ip: geoData.ipAddress || 'Unknown',
-                location: `${geoData.cityName}, ${geoData.regionName}, ${geoData.countryName}`,
-                browser, os, device: getDeviceType(),
-                userAgent: navigator.userAgent, language: navigator.language,
-                screen: `${window.screen.width}x${window.screen.height}`,
-                referrer: document.referrer || 'Direct', result: 'Pending', code: ''
-            };
-            const allLeads = JSON.parse(localStorage.getItem('spin_win_leads') || '[]');
-            allLeads.push(leadData);
-            localStorage.setItem('spin_win_leads', JSON.stringify(allLeads));
-        } catch (err) { console.error('Lead tracking failed:', err); }
+        await trackVisitor(email);
 
-        // Transition to Wheel
         leadCapture.style.opacity = '0';
         leadCapture.style.transform = 'translateY(-20px)';
         setTimeout(() => {
             leadCapture.style.display = 'none';
             wheelWrapper.classList.add('active-grid');
-            spinsLeftEl.innerText = '1';
+            checkSpinLimit(email);
             drawWheel(); 
         }, 500);
     });
 
     // Wheel Drawing
     function drawWheel() {
+        if (!segments || segments.length === 0) return;
         const radius = wheelCanvas.width / 2;
         const arc = 2 * Math.PI / segments.length;
         ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
@@ -272,11 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillText(seg.icon, radius - 45, 12);
             ctx.restore();
         });
-        ctx.beginPath();
-        ctx.arc(radius, radius, radius - 5, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-        ctx.lineWidth = 15;
-        ctx.stroke();
     }
 
     function adjustColor(hex, amt) {
@@ -291,92 +252,236 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Spin Logic
-    spinBtn.addEventListener('click', () => {
+    spinBtn.addEventListener('click', async () => {
         if (isSpinning) return;
-        isSpinning = true;
+        
         spinBtn.disabled = true;
-        spinBtn.innerText = 'SPINNING...';
-        const totalWeight = segments.reduce((sum, s) => sum + s.weight, 0);
-        const random = Math.random() * totalWeight;
-        let cumulativeWeight = 0, selectedIndex = 0;
-        for (let i = 0; i < segments.length; i++) {
-            cumulativeWeight += segments[i].weight;
-            if (random < cumulativeWeight) { selectedIndex = i; break; }
-        }
-        const extraSpins = 5 + Math.random() * 5; 
-        const sliceAngle = (2 * Math.PI) / segments.length;
-        const targetAngle = (3 * Math.PI / 2) - (selectedIndex * sliceAngle) - (sliceAngle / 2);
-        const finalRotation = (extraSpins * 2 * Math.PI) + targetAngle;
-        const start = performance.now();
-        const duration = 5000; 
-        function animate(time) {
-            const t = Math.min((time - start) / duration, 1);
-            const easeOut = 1 - Math.pow(1 - t, 3);
-            const currentRotation = finalRotation * easeOut;
-            wheelCanvas.style.transform = `rotate(${currentRotation}rad)`;
-            const currentSlice = Math.floor(((currentRotation % (2 * Math.PI)) / (2 * Math.PI)) * segments.length);
-            if (this.lastSlice !== currentSlice) {
-                document.querySelector('.wheel-pointer').style.transform = 'translateX(-50%) rotate(-15deg)';
-                playTick();
-                setTimeout(() => document.querySelector('.wheel-pointer').style.transform = 'translateX(-50%) rotate(0deg)', 50);
-                this.lastSlice = currentSlice;
+        spinBtn.innerText = 'VERIFYING...';
+
+        try {
+            // 1. Get result from Server
+            const { data: serverResult, error: rpcError } = await supabase.rpc('execute_spin', { user_email: email });
+
+            if (rpcError || (serverResult && serverResult.error)) {
+                alert(serverResult ? serverResult.error : "Security Verification Failed.");
+                await checkSpinLimit(email);
+                return;
             }
-            if (t < 1) requestAnimationFrame(animate.bind(this));
-            else finishSpin(selectedIndex);
+
+            // 2. Use exact index from server for 1:1 sync
+            const finalIndex = serverResult.index;
+            console.log("🏆 Server Index:", finalIndex, "Prize:", serverResult.label);
+
+            isSpinning = true;
+            spinBtn.innerText = 'SPINNING...';
+
+            const sliceAngle = (2 * Math.PI) / segments.length;
+            const extraSpins = 10; // Consistent base spins
+            
+            // 3. Calculate Target Angle (where Segment finalIndex center meets 1.5 * PI)
+            let targetAngle = (1.5 * Math.PI) - (finalIndex * sliceAngle) - (sliceAngle / 2);
+            while (targetAngle < 0) targetAngle += 2 * Math.PI;
+            
+            // 4. Ensure we always spin clockwise and account for current position
+            const currentRotationBase = rotation % (2 * Math.PI);
+            let angleDiff = targetAngle - currentRotationBase;
+            if (angleDiff <= 0) angleDiff += 2 * Math.PI;
+            
+            const finalRotation = rotation + (extraSpins * 2 * Math.PI) + angleDiff;
+            
+            const start = performance.now();
+            const duration = 6000; // Slightly longer for smoother feel
+            const initialRotation = rotation;
+            
+            function animate(time) {
+                const t = Math.min((time - start) / duration, 1);
+                // Custom cubic-bezier for a "premium" heavy feel
+                const easeOut = 1 - Math.pow(1 - t, 5); 
+                rotation = initialRotation + (finalRotation - initialRotation) * easeOut;
+                
+                wheelCanvas.style.transform = `rotate(${rotation}rad)`;
+                
+                // Tick Logic
+                const normalizedRotation = rotation % (2 * Math.PI);
+                let wheelPointAtPointer = (1.5 * Math.PI) - normalizedRotation;
+                while (wheelPointAtPointer < 0) wheelPointAtPointer += 2 * Math.PI;
+                const currentSlice = Math.floor(wheelPointAtPointer / sliceAngle);
+                
+                if (this.lastSlice !== currentSlice) {
+                    playTick();
+                    const pointer = document.querySelector('.wheel-pointer');
+                    if (pointer) {
+                        pointer.style.transform = 'translateX(-50%) rotate(-15deg)';
+                        setTimeout(() => { pointer.style.transform = 'translateX(-50%) rotate(0deg)'; }, 40);
+                    }
+                    this.lastSlice = currentSlice;
+                }
+
+                if (t < 1) {
+                    requestAnimationFrame(animate.bind(this));
+                } else {
+                    // Force exact alignment at the end
+                    rotation = finalRotation;
+                    wheelCanvas.style.transform = `rotate(${rotation}rad)`;
+                    finishSpin(finalIndex, serverResult);
+                }
+            }
+            requestAnimationFrame(animate.bind({ lastSlice: -1 }));
+
+        } catch (err) {
+            console.error('Spin failure:', err);
+            alert("Digital sync failed. Please refresh.");
+            spinBtn.disabled = false;
         }
-        requestAnimationFrame(animate.bind({ lastSlice: -1 }));
     });
 
-    function finishSpin(index) {
+    async function finishSpin(index, serverResult) {
         isSpinning = false;
         const result = segments[index];
+        
         if (email) {
-            const allLeads = JSON.parse(localStorage.getItem('spin_win_leads') || '[]');
-            const leadIndex = allLeads.findLastIndex(l => l.email === email);
-            if (leadIndex !== -1) {
-                allLeads[leadIndex].result = result.label;
-                allLeads[leadIndex].code = result.code;
-                localStorage.setItem('spin_win_leads', JSON.stringify(allLeads));
-            }
+            try {
+                // Track result in DB (Update the latest pending lead)
+                const { data: latestLead, error: fetchError } = await supabase
+                    .from('leads')
+                    .select('id')
+                    .eq('email', email)
+                    .eq('result', 'Pending')
+                    .order('timestamp', { ascending: false })
+                    .limit(1);
+
+                if (!fetchError && latestLead && latestLead.length > 0) {
+                    await supabase
+                        .from('leads')
+                        .update({ 
+                            result: serverResult.label, 
+                            code: serverResult.code 
+                        })
+                        .eq('id', latestLead[0].id);
+                }
+
+                if (serverResult.label !== 'FREE SPIN') {
+                    await checkSpinLimit(email); 
+                } else {
+                    spinsLeftEl.innerText = parseInt(spinsLeftEl.innerText) + 1;
+                    spinBtn.disabled = false;
+                    spinBtn.innerText = 'SPIN AGAIN';
+                }
+            } catch (err) { console.error('Failed to update result:', err); }
         }
-        if (result.label !== 'FREE SPIN') {
-            localStorage.setItem('spin_win_last_spin', Date.now().toString());
-            spinsLeftEl.innerText = '0';
-        } else {
-            spinsLeftEl.innerText = '1';
-            spinBtn.disabled = false;
-            spinBtn.innerText = 'SPIN AGAIN';
-        }
-        if (result.label !== 'BETTER LUCK') {
-            winHistory.unshift({ reward: result.label, code: result.code, date: new Date().toLocaleDateString() });
+        
+        if (serverResult.label !== 'BETTER LUCK') {
+            winHistory.unshift({ 
+                reward: serverResult.label, 
+                code: serverResult.code, 
+                date: new Date().toLocaleDateString() 
+            });
             if (winHistory.length > 5) winHistory.pop();
             localStorage.setItem('spin_win_history', JSON.stringify(winHistory));
             updateHistoryUI();
             playWin();
         }
-        setTimeout(() => showReward(result), 500);
+        setTimeout(() => showReward(result, serverResult), 500);
     }
 
     function updateHistoryUI() {
-        historyList.innerHTML = winHistory.map(item => `
+        historyList.innerHTML = winHistory.map((item, index) => {
+            const hasCode = item.code && item.reward !== 'BETTER LUCK' && item.reward !== 'FREE SPIN';
+            return `
             <li class="history-item">
-                <span class="history-date">${item.date}</span>
-                <span class="history-reward">${item.reward}</span>
+                <div class="history-info">
+                    <span class="history-date">${item.date}</span>
+                    <span class="history-reward">${item.reward}</span>
+                </div>
+                ${hasCode ? `
+                <button class="btn-copy-history" onclick="copyHistoryCode('${item.code}', this)" title="Copy Code">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>` : ''}
             </li>
-        `).join('');
+        `}).join('');
         totalWinsEl.innerText = winHistory.length;
     }
 
-    function showReward(reward) {
-        document.getElementById('reward-emoji').innerText = reward.icon;
-        document.getElementById('reward-title').innerText = reward.label === 'BETTER LUCK' ? 'Keep Going!' : `You Won ${reward.label}!`;
-        document.getElementById('reward-desc').innerText = reward.label === 'BETTER LUCK' ? 'Try again tomorrow!' : 'Use your code:';
-        if (reward.label === 'BETTER LUCK' || reward.label === 'FREE SPIN') couponBox.style.display = 'none';
-        else { couponBox.style.display = 'block'; couponBox.innerText = reward.code; }
+    // Global helper for history copying
+    window.copyHistoryCode = function(code, btn) {
+        navigator.clipboard.writeText(code).then(() => {
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            btn.classList.add('copy-success-small');
+            setTimeout(() => {
+                btn.innerHTML = originalIcon;
+                btn.classList.remove('copy-success-small');
+            }, 2000);
+        });
+    };
+
+    function showReward(visualReward, serverResult) {
+        document.getElementById('reward-emoji').innerText = visualReward.icon;
+        document.getElementById('reward-title').innerText = serverResult.label === 'BETTER LUCK' ? 'Keep Going!' : `You Won ${serverResult.label}!`;
+        document.getElementById('reward-desc').innerText = serverResult.label === 'BETTER LUCK' ? 'Try again tomorrow!' : 'Use your code:';
+        if (serverResult.label === 'BETTER LUCK' || serverResult.label === 'FREE SPIN') {
+            couponBox.style.display = 'none';
+            copyBtn.style.display = 'none';
+        } else {
+            couponBox.style.display = 'block';
+            copyBtn.style.display = 'flex';
+            couponBox.innerText = serverResult.code;
+        }
         modal.style.display = 'flex';
         setTimeout(() => rewardCard.classList.add('show'), 10);
-        if (reward.label !== 'BETTER LUCK' && reward.label !== 'FREE SPIN') createConfetti();
+        if (serverResult.label !== 'BETTER LUCK' && serverResult.label !== 'FREE SPIN') {
+            createConfetti();
+            giftSection.style.display = 'block';
+        } else {
+            giftSection.style.display = 'none';
+        }
     }
+
+    // --- Gifting Logic ---
+    showGiftBtn.addEventListener('click', () => {
+        giftFormContainer.classList.toggle('gift-form-hidden');
+        showGiftBtn.innerText = giftFormContainer.classList.contains('gift-form-hidden') ? 'Transfer loot to friend' : 'Cancel Transfer';
+    });
+
+    sendGiftBtn.addEventListener('click', async () => {
+        const friendEmail = document.getElementById('friend-email').value.trim();
+        if (!friendEmail || !(await verifyEmail(friendEmail)).valid) {
+            alert("Please enter a valid recipient email.");
+            return;
+        }
+
+        sendGiftBtn.innerText = 'TRANSFERRING...';
+        sendGiftBtn.disabled = true;
+
+        try {
+            const currentCode = couponBox.innerText;
+            const currentReward = document.getElementById('reward-title').innerText.replace('You Won ', '').replace('!', '');
+
+            // Log the gift in Supabase (optional, but good for tracking)
+            await supabase.from('leads').insert([{
+                email: friendEmail,
+                result: `Gift: ${currentReward}`,
+                code: currentCode,
+                referrer: `Gifted by ${email}`,
+                timestamp: new Date().toISOString()
+            }]);
+
+            claimSuccess.style.display = 'block';
+            giftFormContainer.classList.add('gift-form-hidden');
+            showGiftBtn.style.display = 'none';
+            
+            setTimeout(() => {
+                claimSuccess.style.display = 'none';
+            }, 5000);
+
+        } catch (err) {
+            console.error('Transfer failed:', err);
+            alert("Transfer failed. Please try again.");
+        } finally {
+            sendGiftBtn.innerText = 'INITIATE TRANSFER';
+            sendGiftBtn.disabled = false;
+        }
+    });
 
     function createConfetti() {
         const colors = ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'];
@@ -395,40 +500,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Modal Events
     document.getElementById('close-modal').addEventListener('click', () => {
-        const btn = document.getElementById('close-modal');
-        if (btn.innerText === 'CLAIM LOOT') {
-            btn.innerText = 'PROCEEDING...'; btn.disabled = true;
-            setTimeout(() => {
-                claimSuccess.style.display = 'block'; giftSection.style.display = 'none';
-                btn.innerText = 'CLOSE'; btn.disabled = false;
-                if (soundEnabled) playWin();
-            }, 1000);
-        } else {
-            modal.style.display = 'none'; rewardCard.classList.remove('show');
-            btn.innerText = 'CLAIM LOOT'; claimSuccess.style.display = 'none';
-            giftSection.style.display = 'block'; giftFormContainer.classList.add('gift-form-hidden');
-            showGiftBtn.style.display = 'block';
-            if (spinsLeftEl.innerText === '1') { spinBtn.disabled = false; spinBtn.innerText = 'EXECUTE SPIN'; }
-            else { spinBtn.innerText = 'NO SPINS LEFT'; }
-        }
+        modal.style.display = 'none'; rewardCard.classList.remove('show');
+        if (spinsLeftEl.innerText === '1') { spinBtn.disabled = false; spinBtn.innerText = 'EXECUTE SPIN'; }
     });
 
-    showGiftBtn.addEventListener('click', () => {
-        giftFormContainer.classList.remove('gift-form-hidden');
-        showGiftBtn.style.display = 'none';
+    // Theme & Sound
+    themeToggle.addEventListener('click', () => {
+        currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        localStorage.setItem('spin_win_theme', currentTheme);
     });
 
-    sendGiftBtn.addEventListener('click', () => {
-        const friendEmail = document.getElementById('friend-email').value;
-        if (!friendEmail || !friendEmail.includes('@')) return alert('Valid email required.');
-        sendGiftBtn.innerText = 'SENDING...'; sendGiftBtn.disabled = true;
-        setTimeout(() => {
-            giftFormContainer.innerHTML = `<p style="color: var(--cyber-blue); margin-top: 1rem; font-size: 0.8rem;">🎁 Loot transferred to ${friendEmail}!</p>`;
-            if (soundEnabled) playWin();
-        }, 1200);
+    soundToggle.addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        localStorage.setItem('spin_win_sound', soundEnabled);
+        updateSoundIcon();
+        if (soundEnabled && !audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     });
 
-    // Background Particles
+    function updateSoundIcon() {
+        soundToggle.innerHTML = soundEnabled ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9l-3 3H2v6h6l3 3V3.05a9.38 9.38 0 0 1 3.5 1.5"></path></svg>';
+    }
+
+    function playTick() {
+        if (!soundEnabled) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function playWin() {
+        if (!soundEnabled) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; 
+        notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + i * 0.1); osc.stop(audioCtx.currentTime + i * 0.1 + 0.3);
+        });
+    }
+
+    function parseUserAgent() {
+        const ua = navigator.userAgent;
+        let browser = "Unknown", os = "Unknown";
+        if (ua.indexOf("Chrome") > -1) browser = "Chrome"; else if (ua.indexOf("Safari") > -1) browser = "Safari";
+        if (ua.indexOf("Win") > -1) os = "Windows"; else if (ua.indexOf("Mac") > -1) os = "MacOS";
+        return { browser, os };
+    }
+
+    function getDeviceType() {
+        const ua = navigator.userAgent;
+        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "Tablet";
+        if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) return "Mobile";
+        return "Desktop";
+    }
+
     function initParticles() {
         const bgCanvas = document.getElementById('canvas-bg');
         const bgCtx = bgCanvas.getContext('2d');
@@ -449,4 +581,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         animate();
     }
+    initParticles();
 });

@@ -104,7 +104,12 @@
             <h2 class="win-banner" id="reward-title">VICTORY</h2>
             <p id="reward-desc">Your legendary loot code has been generated:</p>
             
-            <div class="coupon-cyber" id="coupon-code">LFG-99X</div>
+            <div class="coupon-container">
+                <div class="coupon-cyber" id="coupon-code">LFG-99X</div>
+                <button id="copy-btn" class="btn-copy" title="Copy Code">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+            </div>
 
             <button class="btn-cyber" id="close-modal">CLAIM LOOT</button>
 
@@ -122,15 +127,13 @@
 
     <footer class="main-footer">
         <div class="footer-content">
-            <p class="copyright">&copy; 2026 PREMIUM SPIN // PROTOCOL V2.1</p>
-            <div class="footer-links">
-                <a href="#">Privacy</a>
-                <a href="#">Terms</a>
-                <a href="#">System Support</a>
-            </div>
+            <p class="copyright">© 2026 PREMIUM SPIN created with Neosafi by care</p>
         </div>
     </footer>
 
+    <script src="compatibility.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
