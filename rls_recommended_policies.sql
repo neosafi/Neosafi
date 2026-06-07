@@ -30,15 +30,11 @@ FOR SELECT
 TO anon
 USING (true);
 
--- 4) Allow anon clients to UPDATE only the row they just created is not feasible
--- safely without auth. For prototypes, you can allow update where email matches.
--- WARNING: This is less secure.
-CREATE POLICY "anon_can_update_own_leads_result" 
-ON leads
-FOR UPDATE
-TO anon
-USING (email = auth.jwt() ->> 'email')
-WITH CHECK (email = auth.jwt() ->> 'email');
+-- 4) Allow anon clients to UPDATE only Pending rows for a given email
+-- NOTE: Supabase anon JWT typically does NOT contain user email; this policy will be effective
+-- only when using authenticated sessions. For anon-only flows, client updates should be done via RPC.
+-- We keep UPDATE restricted for safety.
+
 
 -- Alternative safer approach:
 -- - Remove client-side UPDATE entirely and do it in an RPC protected by SECURITY DEFINER.

@@ -263,7 +263,13 @@ document.addEventListener('DOMContentLoaded', () => {
         email = emailValue;
         localStorage.setItem('spin_win_email', email);
 
-        await trackVisitor(email);
+        // Visitor tracking is best-effort; never block the game UI on RLS/network errors.
+        try {
+            await trackVisitor(email);
+        } catch (e) {
+                // ignore (RLS/network). keep user flow working.
+            }
+
 
         leadCapture.style.opacity = '0';
         leadCapture.style.transform = 'translateY(-20px)';
