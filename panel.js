@@ -115,6 +115,18 @@ document.addEventListener('DOMContentLoaded', () => {
             .replaceAll("'", '&#039;');
     }
 
+    function maskEmail(email) {
+        if (!email || email === 'Anonymous') return '👤 Anonymous Visitor';
+        const str = String(email);
+        const [user, domain] = str.split('@');
+        if (!domain) return '•'.repeat(Math.min(10, str.length));
+
+        // keep first char and first 2 chars of domain prefix
+        const safeUser = user || '';
+        const userMasked = safeUser.length <= 2 ? safeUser[0] + '•' : safeUser.slice(0, 1) + '•'.repeat(Math.min(8, safeUser.length - 1));
+        return `${userMasked}@${domain}`;
+    }
+
 
     function renderVisitorInfo(lead) {
         const ids = {
@@ -130,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             code: 'visitor-code'
         };
 
+
         const get = (key) => document.getElementById(ids[key]);
         if (!lead) {
             Object.values(ids).forEach(id => { const el = document.getElementById(id); if (el) el.innerText = '-'; });
@@ -137,7 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const visitorEmail = get('email');
-        if (visitorEmail) visitorEmail.innerText = lead.email === 'Anonymous' ? '👤 Anonymous Visitor' : lead.email;
+        if (visitorEmail) visitorEmail.innerText = maskEmail(lead.email);
+
 
         const tsEl = get('timestamp');
         if (tsEl) tsEl.innerText = lead.timestamp ? new Date(lead.timestamp).toLocaleString() : '-';
@@ -175,11 +189,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function refreshVisitorInfo() {
-        if (allLeads.length === 0) {
+        // Dernier visiteur = le lead le plus récent (même si Pending)
+        if (!Array.isArray(allLeads) || allLeads.length === 0) {
             renderVisitorInfo(null);
             return;
         }
-        renderVisitorInfo(allLeads[0]);
+
+        // Sécurité: on re-trie côté client (évite des soucis si timestamp arrive mal trié)
+        const sorted = [...allLeads].sort((a, b) => {
+            const ta = a?.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const tb = b?.timestamp ? new Date(b.timestamp).getTime() : 0;
+            return tb - ta;
+        });
+
+        renderVisitorInfo(sorted[0] ?? null);
     }
 
     // --- Dashboard Initialization ---
@@ -381,8 +404,9 @@ async function loadSystemConfig() {
             <tr>
                 <td>${new Date(l.timestamp).toLocaleString()}</td>
                 <td style="font-weight: 600; color: ${l.email === 'Anonymous' ? 'var(--text-muted)' : 'var(--primary)'};">
-                    ${l.email === 'Anonymous' ? '👤 Anonymous Visitor' : l.email}
+                    ${maskEmail(l.email)}
                 </td>
+
                 <td><span class="badge">${l.location || 'Unknown'}</span></td>
                 <td><span class="badge">${l.device || 'Desktop'}</span></td>
                 <td>${l.result && l.result !== 'Pending' ? `<span class="badge badge-success">${l.result}</span>` : `<span class="badge badge-warning">Pending</span>`}</td>
@@ -411,13 +435,23 @@ async function loadSystemConfig() {
         
         tbody.innerHTML = emailList.map(e => `
             <tr>
-                <td style="font-weight: 600; color: var(--primary);">${e.email}</td>
+                <td style="font-weight: 600; color: var(--primary);">${maskEmail(e.email)}</td>
                 <td><span class="badge">${e.domain}</span></td>
                 <td>${new Date(e.capturedAt).toLocaleString()}</td>
                 <td><span class="badge ${e.lastResult !== 'Pending' ? 'badge-success' : 'badge-warning'}">${e.lastResult}</span></td>
                 <td><button class="btn btn-primary btn-sm" onclick="viewDetails('${e.id}')">History</button></td>
             </tr>
         `).join('');
+
+    }
+
+    // Refresh visitor button (Dernier Visiteur)
+    const refreshVisitorBtn = document.getElementById('refresh-visitor');
+    if (refreshVisitorBtn) {
+        refreshVisitorBtn.addEventListener('click', async () => {
+            await fetchLeads();
+            await refreshVisitorInfo();
+        });
     }
 
     document.getElementById('lead-search').addEventListener('input', renderTable);
@@ -433,7 +467,8 @@ async function loadSystemConfig() {
         const body = document.getElementById('modal-body');
         
         body.innerHTML = `
-            <div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">${lead.email}</span></div>
+            <div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">${maskEmail(lead.email)}</span></div>
+
             <div class="detail-row"><span class="detail-label">IP Address</span><span class="detail-value">${lead.ip}</span></div>
             <div class="detail-row"><span class="detail-label">Location</span><span class="detail-value">${lead.location}</span></div>
             <div class="detail-row"><span class="detail-label">OS / Platform</span><span class="detail-value">${lead.os || 'Unknown'}</span></div>
@@ -482,7 +517,7 @@ async function loadSystemConfig() {
     });
 
     // --- Wheel Configuration Logic ---
-async function loadConfig() {
+    async function loadConfig() {
         const configBody = document.getElementById('config-body');
         const defaultSegments = [
             { label: '100% OFF', color: '#6366F1', weight: 2, icon: '🔥', code: 'ZQYB214RZC' },

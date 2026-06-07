@@ -6,12 +6,64 @@ document.addEventListener('DOMContentLoaded', () => {
     let winHistory = JSON.parse(localStorage.getItem('spin_win_history') || '[]');
     let soundEnabled = localStorage.getItem('spin_win_sound') !== 'false';
     let currentTheme = localStorage.getItem('spin_win_theme') || 'dark';
-    
+
     // Audio Context for Procedural SFX
     let audioCtx = null;
 
     // UI Elements
     const container = document.getElementById('main-container');
+
+    // Supabase error banner
+    const getBannerEl = () => {
+        let el = document.getElementById('supabase-error-banner');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'supabase-error-banner';
+            el.style.position = 'fixed';
+            el.style.top = '16px';
+            el.style.right = '16px';
+            el.style.zIndex = '99999';
+            el.style.maxWidth = '420px';
+            el.style.padding = '12px 14px';
+            el.style.borderRadius = '14px';
+            el.style.background = 'rgba(239, 68, 68, 0.12)';
+            el.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            el.style.color = '#fff';
+            el.style.backdropFilter = 'blur(12px)';
+            el.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
+            el.style.display = 'none';
+            el.innerHTML = '<div style="font-weight:800;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">Supabase error</div><div id="supabase-error-banner-body" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;font-size:12px;opacity:0.95;white-space:pre-wrap;word-break:break-word;"></div>';
+            document.body.appendChild(el);
+        }
+        return el;
+    };
+
+    function showSupabaseError(op, err) {
+        try {
+            const banner = getBannerEl();
+            const body = document.getElementById('supabase-error-banner-body');
+            const msg = (err && (err.message || err.error_description || err.details))
+                ? (err.message || err.error_description || err.details)
+                : JSON.stringify(err || {});
+            const status = err && err.status ? `status=${err.status}` : '';
+            body.textContent = `op: ${op}\n${status}\n${msg}`;
+            banner.style.display = 'block';
+        } catch (e) {
+            // ignore banner failures
+        }
+    }
+
+    async function supabaseOp(opName, fn) {
+        try {
+            return await fn();
+        } catch (err) {
+            console.error(`[SupabaseOp:${opName}]`, err);
+            showSupabaseError(opName, err);
+            throw err;
+        }
+    }
+
+    // UI Elements
     const leadCapture = document.getElementById('lead-capture');
     const wheelWrapper = document.getElementById('wheel-wrapper');
     const spinForm = document.getElementById('spin-form');
@@ -26,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const spinsLeftEl = document.getElementById('spins-left');
     const themeToggle = document.getElementById('theme-toggle');
     const soundToggle = document.getElementById('sound-toggle');
-    
+
     // Gifting Elements
     const showGiftBtn = document.getElementById('show-gift-form');
     const giftFormContainer = document.getElementById('gift-form-container');
@@ -65,14 +117,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let spinLimit = 1;
 
     // --- Load Config from Supabase ---
-async function loadGlobalConfig() {
+    async function loadGlobalConfig() {
         try {
-            const { data: config, error } = await supabase.from('system_config').select('*');
+            const { data: config, error } = await supabaseOp('system_config.select_all', () =>
+                supabase.from('system_config').select('*')
+            );
+
             if (error) throw error;
 
             config.forEach(item => {
                 if (item.key === 'spin_limit') {
-                    // spin_limit is stored as JSONB in DB (e.g. 1). Accept number/string.
                     const raw = item.value;
                     const parsed = typeof raw === 'number' ? raw : parseInt(String(raw));
                     if (!Number.isNaN(parsed)) spinLimit = parsed;
@@ -86,6 +140,7 @@ async function loadGlobalConfig() {
             drawWheel();
         } catch (err) {
             console.error('Config load failed (likely RLS/406). Using defaults:', err);
+            showSupabaseError('system_config.select_all', err);
             spinLimit = 1;
             segments = defaultSegments;
             drawWheel();
@@ -97,12 +152,12 @@ async function loadGlobalConfig() {
     updateSoundIcon();
     updateHistoryUI();
     loadGlobalConfig();
-    
+
     // Initial entrance logic
     if (!email) {
         leadCapture.style.display = 'block';
         wheelWrapper.style.display = 'none';
-        trackVisitor('Anonymous'); 
+        trackVisitor('Anonymous');
     } else {
         leadCapture.style.display = 'none';
         wheelWrapper.classList.add('active-grid');
@@ -113,14 +168,16 @@ async function loadGlobalConfig() {
         try {
             const now = new Date();
             const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-            
-            const { data: recentSpins, error } = await supabase
-                .from('leads')
-                .select('timestamp')
-                .eq('email', userEmail)
-                .neq('result', 'Pending')
-                .neq('result', 'FREE SPIN')
-                .gt('timestamp', twentyFourHoursAgo);
+
+            const { data: recentSpins, error } = await supabaseOp('leads.check_spin_limit', () =>
+                supabase
+                    .from('leads')
+                    .select('timestamp')
+                    .eq('email', userEmail)
+                    .neq('result', 'Pending')
+                    .neq('result', 'FREE SPIN')
+                    .gt('timestamp', twentyFourHoursAgo)
+            );
 
             if (error) throw error;
 
@@ -139,7 +196,8 @@ async function loadGlobalConfig() {
             }
         } catch (err) {
             console.error('Limit check failed:', err);
-            return true; 
+            showSupabaseError('leads.check_spin_limit', err);
+            return true;
         }
     }
 
@@ -149,23 +207,28 @@ async function loadGlobalConfig() {
             const geoRes = await fetch('https://freeipapi.com/api/json');
             const geoData = await geoRes.json();
             const { browser, os } = parseUserAgent();
-            
+
             const leadData = {
-                email: userEmail, 
+                email: userEmail,
                 timestamp: new Date().toISOString(),
                 ip: geoData.ipAddress || 'Unknown',
                 location: `${geoData.cityName}, ${geoData.regionName}, ${geoData.countryName}`,
                 browser, os, device: getDeviceType(),
-                user_agent: navigator.userAgent, 
+                user_agent: navigator.userAgent,
                 language: navigator.language,
                 screen: `${window.screen.width}x${window.screen.height}`,
-                referrer: document.referrer || 'Direct', 
-                result: 'Pending', 
+                referrer: document.referrer || 'Direct',
+                result: 'Pending',
                 code: ''
             };
 
-            await supabase.from('leads').insert([leadData]);
-        } catch (err) { console.error('Lead tracking failed:', err); }
+            await supabaseOp('leads.insert(visitor)', () =>
+                supabase.from('leads').insert([leadData])
+            );
+        } catch (err) {
+            console.error('Lead tracking failed:', err);
+            showSupabaseError('leads.insert(visitor)', err);
+        }
     }
 
     // --- Real Email Verification ---
@@ -199,7 +262,7 @@ async function loadGlobalConfig() {
 
         email = emailValue;
         localStorage.setItem('spin_win_email', email);
-        
+
         await trackVisitor(email);
 
         leadCapture.style.opacity = '0';
@@ -208,7 +271,7 @@ async function loadGlobalConfig() {
             leadCapture.style.display = 'none';
             wheelWrapper.classList.add('active-grid');
             checkSpinLimit(email);
-            drawWheel(); 
+            drawWheel();
         }, 500);
     });
 
@@ -218,6 +281,7 @@ async function loadGlobalConfig() {
         const radius = wheelCanvas.width / 2;
         const arc = 2 * Math.PI / segments.length;
         ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
+
         segments.forEach((seg, i) => {
             const angle = i * arc;
             ctx.beginPath();
@@ -232,6 +296,7 @@ async function loadGlobalConfig() {
             ctx.strokeStyle = 'rgba(255,255,255,0.05)';
             ctx.lineWidth = 4;
             ctx.stroke();
+
             ctx.save();
             ctx.translate(radius, radius);
             ctx.rotate(angle + arc / 2);
@@ -248,72 +313,68 @@ async function loadGlobalConfig() {
     }
 
     function adjustColor(hex, amt) {
-        let usePound = hex[0] == "#";
+        let usePound = hex[0] == '#';
         hex = usePound ? hex.slice(1) : hex;
         let num = parseInt(hex, 16);
         let r = (num >> 16) + amt;
         let b = ((num >> 8) & 0x00FF) + amt;
         let g = (num & 0x0000FF) + amt;
         const fix = (x) => Math.min(255, Math.max(0, x));
-        return (usePound ? "#" : "") + (fix(g) | (fix(b) << 8) | (fix(r) << 16)).toString(16).padStart(6, '0');
+        return (usePound ? '#' : '') + (fix(g) | (fix(b) << 8) | (fix(r) << 16)).toString(16).padStart(6, '0');
     }
 
     // Spin Logic
     spinBtn.addEventListener('click', async () => {
         if (isSpinning) return;
-        
+
         spinBtn.disabled = true;
         spinBtn.innerText = 'VERIFYING...';
 
         try {
-            // 1. Get result from Server
-            const { data: serverResult, error: rpcError } = await supabase.rpc('execute_spin', { user_email: email });
+            const { data: serverResult, error: rpcError } = await supabaseOp('execute_spin', () =>
+                supabase.rpc('execute_spin', { user_email: email })
+            );
 
             if (rpcError || (serverResult && serverResult.error)) {
-                alert(serverResult ? serverResult.error : "Security Verification Failed.");
+                alert(serverResult ? serverResult.error : 'Security Verification Failed.');
                 await checkSpinLimit(email);
                 return;
             }
 
-            // 2. Use exact index from server for 1:1 sync
             const finalIndex = serverResult.index;
-            console.log("🏆 Server Index:", finalIndex, "Prize:", serverResult.label);
+            console.log('🏆 Server Index:', finalIndex, 'Prize:', serverResult.label);
 
             isSpinning = true;
             spinBtn.innerText = 'SPINNING...';
 
             const sliceAngle = (2 * Math.PI) / segments.length;
-            const extraSpins = 10; // Consistent base spins
-            
-            // 3. Calculate Target Angle (where Segment finalIndex center meets 1.5 * PI)
+            const extraSpins = 10;
+
             let targetAngle = (1.5 * Math.PI) - (finalIndex * sliceAngle) - (sliceAngle / 2);
             while (targetAngle < 0) targetAngle += 2 * Math.PI;
-            
-            // 4. Ensure we always spin clockwise and account for current position
+
             const currentRotationBase = rotation % (2 * Math.PI);
             let angleDiff = targetAngle - currentRotationBase;
             if (angleDiff <= 0) angleDiff += 2 * Math.PI;
-            
+
             const finalRotation = rotation + (extraSpins * 2 * Math.PI) + angleDiff;
-            
+
             const start = performance.now();
-            const duration = 6000; // Slightly longer for smoother feel
+            const duration = 6000;
             const initialRotation = rotation;
-            
+
             function animate(time) {
                 const t = Math.min((time - start) / duration, 1);
-                // Custom cubic-bezier for a "premium" heavy feel
-                const easeOut = 1 - Math.pow(1 - t, 5); 
+                const easeOut = 1 - Math.pow(1 - t, 5);
                 rotation = initialRotation + (finalRotation - initialRotation) * easeOut;
-                
+
                 wheelCanvas.style.transform = `rotate(${rotation}rad)`;
-                
-                // Tick Logic
+
                 const normalizedRotation = rotation % (2 * Math.PI);
                 let wheelPointAtPointer = (1.5 * Math.PI) - normalizedRotation;
                 while (wheelPointAtPointer < 0) wheelPointAtPointer += 2 * Math.PI;
                 const currentSlice = Math.floor(wheelPointAtPointer / sliceAngle);
-                
+
                 if (this.lastSlice !== currentSlice) {
                     playTick();
                     const pointer = document.querySelector('.wheel-pointer');
@@ -327,17 +388,16 @@ async function loadGlobalConfig() {
                 if (t < 1) {
                     requestAnimationFrame(animate.bind(this));
                 } else {
-                    // Force exact alignment at the end
                     rotation = finalRotation;
                     wheelCanvas.style.transform = `rotate(${rotation}rad)`;
                     finishSpin(finalIndex, serverResult);
                 }
             }
-            requestAnimationFrame(animate.bind({ lastSlice: -1 }));
 
+            requestAnimationFrame(animate.bind({ lastSlice: -1 }));
         } catch (err) {
             console.error('Spin failure:', err);
-            alert("Digital sync failed. Please refresh.");
+            alert('Digital sync failed. Please refresh.');
             spinBtn.disabled = false;
         }
     });
@@ -345,49 +405,56 @@ async function loadGlobalConfig() {
     async function finishSpin(index, serverResult) {
         isSpinning = false;
         const result = segments[index];
-        
+
         if (email) {
             try {
-                // Track result in DB (Update the latest pending lead)
-                const { data: latestLead, error: fetchError } = await supabase
-                    .from('leads')
-                    .select('id')
-                    .eq('email', email)
-                    .eq('result', 'Pending')
-                    .order('timestamp', { ascending: false })
-                    .limit(1);
+                const { data: latestLead, error: fetchError } = await supabaseOp('leads.update.latest_pending', () =>
+                    supabase
+                        .from('leads')
+                        .select('id')
+                        .eq('email', email)
+                        .eq('result', 'Pending')
+                        .order('timestamp', { ascending: false })
+                        .limit(1)
+                );
 
                 if (!fetchError && latestLead && latestLead.length > 0) {
-                    await supabase
-                        .from('leads')
-                        .update({ 
-                            result: serverResult.label, 
-                            code: serverResult.code 
-                        })
-                        .eq('id', latestLead[0].id);
+                    await supabaseOp('leads.update.result', () =>
+                        supabase
+                            .from('leads')
+                            .update({
+                                result: serverResult.label,
+                                code: serverResult.code
+                            })
+                            .eq('id', latestLead[0].id)
+                    );
                 }
 
                 if (serverResult.label !== 'FREE SPIN') {
-                    await checkSpinLimit(email); 
+                    await checkSpinLimit(email);
                 } else {
                     spinsLeftEl.innerText = parseInt(spinsLeftEl.innerText) + 1;
                     spinBtn.disabled = false;
                     spinBtn.innerText = 'SPIN AGAIN';
                 }
-            } catch (err) { console.error('Failed to update result:', err); }
+            } catch (err) {
+                console.error('Failed to update result:', err);
+                showSupabaseError('leads.update.result', err);
+            }
         }
-        
+
         if (serverResult.label !== 'BETTER LUCK') {
-            winHistory.unshift({ 
-                reward: serverResult.label, 
-                code: serverResult.code, 
-                date: new Date().toLocaleDateString() 
+            winHistory.unshift({
+                reward: serverResult.label,
+                code: serverResult.code,
+                date: new Date().toLocaleDateString()
             });
             if (winHistory.length > 5) winHistory.pop();
             localStorage.setItem('spin_win_history', JSON.stringify(winHistory));
             updateHistoryUI();
             playWin();
         }
+
         setTimeout(() => showReward(result, serverResult), 500);
     }
 
@@ -405,12 +472,14 @@ async function loadGlobalConfig() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>` : ''}
             </li>
-        `}).join('');
+        `;
+        }).join('');
+
         totalWinsEl.innerText = winHistory.length;
     }
 
     // Global helper for history copying
-    window.copyHistoryCode = function(code, btn) {
+    window.copyHistoryCode = function (code, btn) {
         navigator.clipboard.writeText(code).then(() => {
             const originalIcon = btn.innerHTML;
             btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
@@ -426,6 +495,7 @@ async function loadGlobalConfig() {
         document.getElementById('reward-emoji').innerText = visualReward.icon;
         document.getElementById('reward-title').innerText = serverResult.label === 'BETTER LUCK' ? 'Keep Going!' : `You Won ${serverResult.label}!`;
         document.getElementById('reward-desc').innerText = serverResult.label === 'BETTER LUCK' ? 'Try again tomorrow!' : 'Use your code:';
+
         if (serverResult.label === 'BETTER LUCK' || serverResult.label === 'FREE SPIN') {
             couponBox.style.display = 'none';
             copyBtn.style.display = 'none';
@@ -434,8 +504,10 @@ async function loadGlobalConfig() {
             copyBtn.style.display = 'flex';
             couponBox.innerText = serverResult.code;
         }
+
         modal.style.display = 'flex';
         setTimeout(() => rewardCard.classList.add('show'), 10);
+
         if (serverResult.label !== 'BETTER LUCK' && serverResult.label !== 'FREE SPIN') {
             createConfetti();
             giftSection.style.display = 'block';
@@ -453,7 +525,7 @@ async function loadGlobalConfig() {
     sendGiftBtn.addEventListener('click', async () => {
         const friendEmail = document.getElementById('friend-email').value.trim();
         if (!friendEmail || !(await verifyEmail(friendEmail)).valid) {
-            alert("Please enter a valid recipient email.");
+            alert('Please enter a valid recipient email.');
             return;
         }
 
@@ -464,26 +536,26 @@ async function loadGlobalConfig() {
             const currentCode = couponBox.innerText;
             const currentReward = document.getElementById('reward-title').innerText.replace('You Won ', '').replace('!', '');
 
-            // Log the gift in Supabase (optional, but good for tracking)
-            await supabase.from('leads').insert([{
-                email: friendEmail,
-                result: `Gift: ${currentReward}`,
-                code: currentCode,
-                referrer: `Gifted by ${email}`,
-                timestamp: new Date().toISOString()
-            }]);
+            await supabaseOp('leads.insert(gift)', () =>
+                supabase.from('leads').insert([{ 
+                    email: friendEmail,
+                    result: `Gift: ${currentReward}`,
+                    code: currentCode,
+                    referrer: `Gifted by ${email}`,
+                    timestamp: new Date().toISOString()
+                }])
+            );
 
             claimSuccess.style.display = 'block';
             giftFormContainer.classList.add('gift-form-hidden');
             showGiftBtn.style.display = 'none';
-            
+
             setTimeout(() => {
                 claimSuccess.style.display = 'none';
             }, 5000);
-
         } catch (err) {
             console.error('Transfer failed:', err);
-            alert("Transfer failed. Please try again.");
+            alert('Transfer failed. Please try again.');
         } finally {
             sendGiftBtn.innerText = 'INITIATE TRANSFER';
             sendGiftBtn.disabled = false;
@@ -494,10 +566,15 @@ async function loadGlobalConfig() {
         const colors = ['#6366F1', '#8B5CF6', '#EC4899', '#10B981'];
         for (let i = 0; i < 100; i++) {
             const confetti = document.createElement('div');
-            confetti.style.position = 'fixed'; confetti.style.width = '8px'; confetti.style.height = '8px';
+            confetti.style.position = 'fixed';
+            confetti.style.width = '8px';
+            confetti.style.height = '8px';
             confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-            confetti.style.left = Math.random() * 100 + 'vw'; confetti.style.top = '-10px'; confetti.style.zIndex = '1000';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.top = '-10px';
+            confetti.style.zIndex = '1000';
             document.body.appendChild(confetti);
+
             confetti.animate([
                 { transform: 'translate3d(0, 0, 0) rotate(0deg)', opacity: 1 },
                 { transform: `translate3d(${(Math.random() - 0.5) * 200}px, 100vh, 0) rotate(${Math.random() * 360}deg)`, opacity: 0 }
@@ -507,8 +584,12 @@ async function loadGlobalConfig() {
 
     // Modal Events
     document.getElementById('close-modal').addEventListener('click', () => {
-        modal.style.display = 'none'; rewardCard.classList.remove('show');
-        if (spinsLeftEl.innerText === '1') { spinBtn.disabled = false; spinBtn.innerText = 'EXECUTE SPIN'; }
+        modal.style.display = 'none';
+        rewardCard.classList.remove('show');
+        if (spinsLeftEl.innerText === '1') {
+            spinBtn.disabled = false;
+            spinBtn.innerText = 'EXECUTE SPIN';
+        }
     });
 
     // Theme & Sound
@@ -526,7 +607,9 @@ async function loadGlobalConfig() {
     });
 
     function updateSoundIcon() {
-        soundToggle.innerHTML = soundEnabled ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9l-3 3H2v6h6l3 3V3.05a9.38 9.38 0 0 1 3.5 1.5"></path></svg>';
+        soundToggle.innerHTML = soundEnabled
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9l-3 3H2v6h6l3 3V3.05a9.38 9.38 0 0 1 3.5 1.5"></path></svg>';
     }
 
     function playTick() {
@@ -534,59 +617,94 @@ async function loadGlobalConfig() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
     }
 
     function playWin() {
         if (!soundEnabled) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const notes = [523.25, 659.25, 783.99, 1046.50]; 
+        const notes = [523.25, 659.25, 783.99, 1046.50];
         notes.forEach((freq, i) => {
-            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
             gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.1);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(audioCtx.currentTime + i * 0.1); osc.stop(audioCtx.currentTime + i * 0.1 + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + i * 0.1);
+            osc.stop(audioCtx.currentTime + i * 0.1 + 0.3);
         });
     }
 
     function parseUserAgent() {
         const ua = navigator.userAgent;
-        let browser = "Unknown", os = "Unknown";
-        if (ua.indexOf("Chrome") > -1) browser = "Chrome"; else if (ua.indexOf("Safari") > -1) browser = "Safari";
-        if (ua.indexOf("Win") > -1) os = "Windows"; else if (ua.indexOf("Mac") > -1) os = "MacOS";
+        let browser = 'Unknown', os = 'Unknown';
+        if (ua.indexOf('Chrome') > -1) browser = 'Chrome'; else if (ua.indexOf('Safari') > -1) browser = 'Safari';
+        if (ua.indexOf('Win') > -1) os = 'Windows'; else if (ua.indexOf('Mac') > -1) os = 'MacOS';
         return { browser, os };
     }
 
     function getDeviceType() {
         const ua = navigator.userAgent;
-        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "Tablet";
-        if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) return "Mobile";
-        return "Desktop";
+        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return 'Tablet';
+        if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/i.test(ua)) return 'Mobile';
+        return 'Desktop';
     }
 
     function initParticles() {
         const bgCanvas = document.getElementById('canvas-bg');
         const bgCtx = bgCanvas.getContext('2d');
         let particles = [];
-        function resize() { bgCanvas.width = window.innerWidth; bgCanvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize); resize();
+
+        function resize() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
         class Particle {
             constructor() { this.reset(); }
-            reset() { this.x = Math.random() * bgCanvas.width; this.y = Math.random() * bgCanvas.height; this.size = Math.random() * 2 + 0.5; this.speedX = Math.random() * 0.4 - 0.2; this.speedY = Math.random() * 0.4 - 0.2; this.opacity = Math.random() * 0.3; }
-            update() { this.x += this.speedX; this.y += this.speedY; if (this.x < 0 || this.x > bgCanvas.width || this.y < 0 || this.y > bgCanvas.height) this.reset(); }
-            draw() { bgCtx.fillStyle = `rgba(148, 163, 184, ${this.opacity})`; bgCtx.beginPath(); bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2); bgCtx.fill(); }
+            reset() {
+                this.x = Math.random() * bgCanvas.width;
+                this.y = Math.random() * bgCanvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = Math.random() * 0.4 - 0.2;
+                this.speedY = Math.random() * 0.4 - 0.2;
+                this.opacity = Math.random() * 0.3;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                if (this.x < 0 || this.x > bgCanvas.width || this.y < 0 || this.y > bgCanvas.height) this.reset();
+            }
+            draw() {
+                bgCtx.fillStyle = `rgba(148, 163, 184, ${this.opacity})`;
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                bgCtx.fill();
+            }
         }
+
         for (let i = 0; i < 40; i++) particles.push(new Particle());
+
         function animate() {
             bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
+
         animate();
     }
+
     initParticles();
 });
+
